@@ -12,6 +12,8 @@
 | [mcp-assets.md](./mcp-assets.md) | ionet-ai MCP 知识库对移植工程的辅助价值 |
 | [phase1-core-skeleton.md](./phase1-core-skeleton.md) | **Phase 1 详细任务清单**（类级别映射 + 验收标准） |
 | [phase2-external-server.md](./phase2-external-server.md) | **Phase 2 详细任务清单**（External Server 抽象 + 验收标准） |
+| [phase2-review.md](./phase2-review.md) | **Phase 2 回顾**（架构决策、测试覆盖、性能指标） |
+| [phase3-distributed.md](./phase3-distributed.md) | **Phase 3 详细任务清单**（分布式架构、Aeron 通信、Logic Server） |
 
 ## 任务跟踪（超长期）
 
@@ -39,20 +41,40 @@
 
 详细回顾见 `packages/core-framework/docs/phase1-review.md`
 
-### Phase 2 · External Server（进行中）
+### Phase 2 · External Server ✅ 完成
+
 详细任务清单见 [phase2-external-server.md](./phase2-external-server.md)
-- [ ] ProtocolCodec 抽象 + JSON 编解码
-- [ ] HTTP External Server
-- [ ] WebSocket External Server
-- [ ] FlowContext 扩展（Session, broadcast）
-- [ ] InOut 插件扩展（SessionInOut, AccessLogInOut）
-- [ ] 集成 Demo
+
+- [x] ProtocolCodec 抽象 + JSON 编解码
+- [x] HTTP External Server
+- [x] WebSocket External Server
+- [x] FlowContext 扩展（Session, ServerInfo, Attachments）
+- [x] InOut 插件扩展（SessionInOut, AccessLogInOut, RateLimitInOut）
+- [x] 集成 Demo（双协议同时运行）
+- [x] 81 tests passing
+
+详细回顾见 [phase2-review.md](./phase2-review.md)
 
 ### Phase 3 · 分布式（待规划）
+
+详细任务清单见 [phase3-distributed.md](./phase3-distributed.md)
+
 - [ ] Logic Server 抽象
+  - [ ] LogicServerBuilder
+  - [ ] ActionCommandRegion 注册
+  - [ ] 与 External Server 的 Aeron 通信
 - [ ] Center Server（可选）
+  - [ ] 服务发现
+  - [ ] 路由协调
+  - [ ] 健康检查
 - [ ] 跨进程/跨机器通信
+  - [ ] Aeron UDP 传输层
+  - [ ] SBE 消息编码
+  - [ ] Publication/Subscription 管理
 - [ ] EventBus / 广播
+  - [ ] 分布式事件总线
+  - [ ] 跨服务广播
+  - [ ] 事件订阅/发布
 
 ### Phase 4 · 扩展（待规划）
 - [ ] Domain Event（Disruptor 等价物）

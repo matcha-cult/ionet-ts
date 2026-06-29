@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@ionet/common-kit": "workspace:*",
-    "@ionet/core-framework": "workspace:*"
+    "@ionet/core-framework": "workspace:*",
+    "@ionet/external-server": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.11.0",

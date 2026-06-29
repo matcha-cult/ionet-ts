@@ -1,16 +1,26 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { CmdInfo } from '../cmd-info.js';
+import { type SessionData } from './session.js';
 
 export interface Request {
   cmd: number;
   subCmd: number;
   data?: unknown;
+  headers?: Record<string, string>;
 }
 
 export interface Response {
   data?: unknown;
   errorCode?: number;
   errorMessage?: string;
+  headers?: Record<string, string>;
+}
+
+export interface ServerInfo {
+  id: string;
+  type: 'http' | 'ws' | 'tcp';
+  port: number;
+  host: string;
 }
 
 export class FlowContext {
@@ -23,6 +33,9 @@ export class FlowContext {
   private _nanoTime: bigint = 0n;
   private _methodResult: unknown = null;
   private _dataParam: unknown = null;
+  private _serverInfo: ServerInfo | null = null;
+  private _session: SessionData | null = null;
+  private _attachments = new Map<string, unknown>();
 
   getUserId(): bigint {
     return this._userId;
@@ -34,6 +47,9 @@ export class FlowContext {
 
   bindingUserId(userId: bigint): void {
     this._userId = userId;
+    if (this._session) {
+      this._session.userId = userId;
+    }
   }
 
   getCmdInfo(): CmdInfo {
@@ -105,6 +121,38 @@ export class FlowContext {
 
   setDataParam(dataParam: unknown): void {
     this._dataParam = dataParam;
+  }
+
+  getServer(): ServerInfo | null {
+    return this._serverInfo;
+  }
+
+  setServer(serverInfo: ServerInfo): void {
+    this._serverInfo = serverInfo;
+  }
+
+  getSession(): SessionData | null {
+    return this._session;
+  }
+
+  setSession(session: SessionData): void {
+    this._session = session;
+  }
+
+  getAttachment<T>(key: string): T | undefined {
+    return this._attachments.get(key) as T | undefined;
+  }
+
+  setAttachment<T>(key: string, value: T): void {
+    this._attachments.set(key, value);
+  }
+
+  removeAttachment(key: string): void {
+    this._attachments.delete(key);
+  }
+
+  clearAttachments(): void {
+    this._attachments.clear();
   }
 }
 

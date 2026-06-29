@@ -5,12 +5,19 @@ import {
   BarSkeletonBuilder,
   DebugInOut,
   StatActionInOut,
+  SessionInOut,
+  InMemorySessionStore,
+  DefaultSessionManager,
+  RateLimitInOut,
+  AccessLogInOut,
 } from '@ionet/core-framework';
+import { HttpExternalServer, WebSocketExternalServer } from '@ionet/external-server';
 
 const HALL_CMD = {
   cmd: 1,
   loginVerify: 1,
   hello: 2,
+  getUserInfo: 3,
 } as const;
 
 @ActionController(HALL_CMD.cmd)
@@ -25,61 +32,52 @@ class HallAction {
   hello(userId: number): string {
     return `hello ${userId}`;
   }
+
+  @ActionMethod(HALL_CMD.getUserInfo)
+  getUserInfo(userId: number): { userId: number; name: string; level: number } {
+    return { userId, name: `User${userId}`, level: Math.floor(userId / 100) + 1 };
+  }
 }
 
 async function main() {
-  const debugInOut = new DebugInOut();
-  const statInOut = new StatActionInOut();
+  console.log('=== ionet Phase 2 Demo ===\n');
+
+  const sessionStore = new InMemorySessionStore();
+  const sessionManager = new DefaultSessionManager(sessionStore);
 
   const skeleton = new BarSkeletonBuilder()
     .addAction(HallAction)
-    .addInOut(debugInOut)
-    .addInOut(statInOut)
+    .addInOut(new RateLimitInOut({ maxRequests: 100, windowMs: 60_000 }))
+    .addInOut(new AccessLogInOut())
+    .addInOut(new SessionInOut(sessionManager))
+    .addInOut(new DebugInOut())
+    .addInOut(new StatActionInOut())
     .build();
 
-  console.log('=== ionet demo starting ===\n');
-
-  // Test login
-  console.log('--- Test 1: login ---');
-  const loginResult = await skeleton.execute({
-    cmd: HALL_CMD.cmd,
-    subCmd: HALL_CMD.loginVerify,
-    data: 'Alice',
+  const httpServer = new HttpExternalServer({
+    port: 8080,
+    host: 'localhost',
   });
-  console.log('Result:', loginResult);
-  console.log();
 
-  // Test hello
-  console.log('--- Test 2: hello ---');
-  const helloResult = await skeleton.execute({
-    cmd: HALL_CMD.cmd,
-    subCmd: HALL_CMD.hello,
-    data: 12345,
+  const wsServer = new WebSocketExternalServer({
+    port: 8081,
+    host: 'localhost',
   });
-  console.log('Result:', helloResult);
-  console.log();
 
-  // Test unknown action
-  console.log('--- Test 3: unknown action ---');
-  const unknownResult = await skeleton.execute({
-    cmd: 999,
-    subCmd: 999,
-    data: null,
-  });
-  console.log('Result:', unknownResult);
-  console.log();
+  await httpServer.start(skeleton);
+  console.log('✓ HTTP server started on http://localhost:8080');
 
-  // Print statistics
-  console.log('=== Statistics ===');
-  for (const stat of statInOut.getStats()) {
-    const cmd = stat.cmdMerge >> 16;
-    const subCmd = stat.cmdMerge & 0xFFFF;
-    console.log(
-      `cmd=${cmd}-${subCmd}: calls=${stat.count}, errors=${stat.errorCount}, avgTime=${(stat.totalMs / stat.count).toFixed(2)}ms`,
-    );
-  }
+  await wsServer.start(skeleton);
+  console.log('✓ WebSocket server started on ws://localhost:8081');
 
-  console.log('\n=== ionet demo finished ===');
+  console.log('\nEndpoints:');
+  console.log('  HTTP:  POST /api/{cmd}/{subCmd}');
+  console.log('  WS:    Send JSON: { "cmd": number, "subCmd": number, "data": any }');
+  console.log('\nTry:');
+  console.log('  curl -X POST http://localhost:8080/api/1/1 -H "Content-Type: application/json" -d \'{"data":"Alice"}\'');
+  console.log('  curl -X POST http://localhost:8080/api/1/2 -H "Content-Type: application/json" -d \'{"data":12345}\'');
+  console.log('  curl -X POST http://localhost:8080/api/1/3 -H "Content-Type: application/json" -d \'{"data":999}\'');
+  console.log('\nPress Ctrl+C to stop servers');
 }
 
 main().catch(console.error);
