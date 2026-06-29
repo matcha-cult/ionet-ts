@@ -1,0 +1,74 @@
+# ionet vs ioGame 蓝本选型分析
+
+本目录记录把 ionet / ioGame 这两个 Java 游戏服务器框架移植为 Node.js/TypeScript 版之前的蓝本选型分析。
+
+## 文档索引
+
+| 文件 | 内容 |
+|---|---|
+| [ionet-analysis.md](./ionet-analysis.md) | ionet 仓库的深度分析（架构、模块、代码量、并发模型、扩展机制） |
+| [iogame-analysis.md](./iogame-analysis.md) | ioGame 仓库的深度分析（同上维度） |
+| [blueprint-recommendation.md](./blueprint-recommendation.md) | 两者对比 + Node.js 移植蓝本推荐 + 关键决策点 |
+| [mcp-assets.md](./mcp-assets.md) | ionet-ai MCP 知识库对移植工程的辅助价值 |
+| [phase1-core-skeleton.md](./phase1-core-skeleton.md) | **Phase 1 详细任务清单**（类级别映射 + 验收标准） |
+
+## 任务跟踪（超长期）
+
+> 每完成一项手动勾选 `[x]`。未完成的不打勾。
+
+### Phase 0 · 分析与决策
+- [x] 克隆 ionet（已完成，位于 `ionet/`）
+- [x] 克隆 ioGame（已分析后删除，决策不再需要）
+- [x] 深度分析 ionet 架构 → `ionet-analysis.md`
+- [x] 深度分析 ioGame 架构 → `iogame-analysis.md`
+- [x] 蓝本推荐 → `blueprint-recommendation.md`
+- [x] 与用户确认蓝本选择 → **决定：以 ionet 为蓝本**
+- [x] 制定 Phase 1 详细任务清单 → `phase1-core-skeleton.md`
+- [ ] 确定 Node.js 移植版的技术栈（传输层、协议、DI、包结构）—— 在 Phase 1 推进中逐步确认
+- [ ] 确定新项目的目录名和品牌 —— 在 Phase 1 第一个可运行 demo 跑通前确认
+- [ ] 搭建 TS monorepo 脚手架（turbo/npm workspaces/pnpm workspaces 待定）
+
+### Phase 1 · 核心骨架（待规划）
+- [ ] `@ActionController` / `@ActionMethod` 的 TS 装饰器等价物
+- [ ] `CmdInfo` 路由（cmd + subCmd 合并 + flyweight）
+- [ ] `FlowContext` 请求上下文
+- [ ] Action 扫描与注册
+- [ ] 最小可运行的单进程 demo
+
+### Phase 2 · 通信与 External（待规划）
+- [ ] External Server 抽象
+- [ ] WebSocket / TCP / UDP 客户端连接
+- [ ] 协议切换（Protobuf / JSON）
+- [ ] 会话管理
+
+### Phase 3 · 分布式（待规划）
+- [ ] Logic Server 抽象
+- [ ] Center Server（可选）
+- [ ] 跨进程/跨机器通信
+- [ ] EventBus / 广播
+
+### Phase 4 · 扩展（待规划）
+- [ ] Domain Event（Disruptor 等价物）
+- [ ] Room / 房间抽象
+- [ ] Codegen（TS / C# / GDScript）
+- [ ] Spring/NestJS 集成
+
+### Phase 5 · 工具链（待规划）
+- [ ] 压测/模拟客户端
+- [ ] 全链路 Trace
+- [ ] 文档生成
+
+---
+
+## 结论速览（详见 blueprint-recommendation.md）
+
+**推荐：以 ionet 为蓝本。**
+
+主要理由：
+1. **模块拆分更清晰** —— 15 个模块各司其职，TS 移植时可按模块渐进落地
+2. **代码量略大但结构更干净** —— 76.5k LOC vs ioGame 的 69.6k LOC，但 ioGame 的 `common` 一个模块就塞了 396 个文件
+3. **ionet-ai MCP 知识库** —— 移植过程中可直接调用 ionet-ai 的 MCP 服务查询框架权威行为，显著降低移植时的"猜 Java 原版意图"风险
+4. **更新、更激进的技术栈** —— JDK 25 + record + Aeron 1.49，设计时已考虑现代 JVM 特性，抽象更接近"应该的样子"而非历史包袱
+5. **演进关系** —— ionet 是 ioGame 的后继演化版本（看包名从 `com.iohao.game` 变为 `com.iohao.net`），选最新版本作为蓝本更合理
+
+ioGame 的唯一优势：传输层用 SOFA Bolt + Netty（没有 Aeron），理论上移植到 Node.js 时少一个"无 Node 对等物"的痛点。但 Aeron 的缺失也让 ioGame 丧失了 ionet 的核心价值（纳秒级延迟、零拷贝 IPC）。
