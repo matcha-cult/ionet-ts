@@ -1,0 +1,19 @@
+{
+  "name": "@ionet/demo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ionet Phase 1 minimum demo",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@ionet/common-kit": "workspace:*",
+    "@ionet/core-framework": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.11.0",
+    "typescript": "^5.4.0"
+  }
+}

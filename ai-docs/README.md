@@ -11,12 +11,13 @@
 | [blueprint-recommendation.md](./blueprint-recommendation.md) | 两者对比 + Node.js 移植蓝本推荐 + 关键决策点 |
 | [mcp-assets.md](./mcp-assets.md) | ionet-ai MCP 知识库对移植工程的辅助价值 |
 | [phase1-core-skeleton.md](./phase1-core-skeleton.md) | **Phase 1 详细任务清单**（类级别映射 + 验收标准） |
+| [phase2-external-server.md](./phase2-external-server.md) | **Phase 2 详细任务清单**（External Server 抽象 + 验收标准） |
 
 ## 任务跟踪（超长期）
 
 > 每完成一项手动勾选 `[x]`。未完成的不打勾。
 
-### Phase 0 · 分析与决策
+### Phase 0 · 分析与决策 ✅ 完成
 - [x] 克隆 ionet（已完成，位于 `ionet/`）
 - [x] 克隆 ioGame（已分析后删除，决策不再需要）
 - [x] 深度分析 ionet 架构 → `ionet-analysis.md`
@@ -24,22 +25,28 @@
 - [x] 蓝本推荐 → `blueprint-recommendation.md`
 - [x] 与用户确认蓝本选择 → **决定：以 ionet 为蓝本**
 - [x] 制定 Phase 1 详细任务清单 → `phase1-core-skeleton.md`
-- [ ] 确定 Node.js 移植版的技术栈（传输层、协议、DI、包结构）—— 在 Phase 1 推进中逐步确认
-- [ ] 确定新项目的目录名和品牌 —— 在 Phase 1 第一个可运行 demo 跑通前确认
-- [ ] 搭建 TS monorepo 脚手架（turbo/npm workspaces/pnpm workspaces 待定）
+- [x] 确定技术栈 → **pnpm workspaces + tsup + vitest + reflect-metadata**
+- [x] 确定包名前缀 → **`@ionet/*`**
+- [x] 搭建 TS monorepo 脚手架 → `packages/` 目录结构
 
-### Phase 1 · 核心骨架（待规划）
-- [ ] `@ActionController` / `@ActionMethod` 的 TS 装饰器等价物
-- [ ] `CmdInfo` 路由（cmd + subCmd 合并 + flyweight）
-- [ ] `FlowContext` 请求上下文
-- [ ] Action 扫描与注册
-- [ ] 最小可运行的单进程 demo
+### Phase 1 · 核心骨架 ✅ 完成
+- [x] `@ActionController` / `@ActionMethod` 的 TS 装饰器等价物
+- [x] `CmdInfo` 路由（cmd + subCmd 合并 + flyweight）
+- [x] `FlowContext` 请求上下文（AsyncLocalStorage 集成）
+- [x] Action 扫描与注册（DefaultActionCommandParser）
+- [x] BarSkeleton 运行时 + InOut 插件系统
+- [x] 最小可运行的单进程 demo
 
-### Phase 2 · 通信与 External（待规划）
-- [ ] External Server 抽象
-- [ ] WebSocket / TCP / UDP 客户端连接
-- [ ] 协议切换（Protobuf / JSON）
-- [ ] 会话管理
+详细回顾见 `packages/core-framework/docs/phase1-review.md`
+
+### Phase 2 · External Server（进行中）
+详细任务清单见 [phase2-external-server.md](./phase2-external-server.md)
+- [ ] ProtocolCodec 抽象 + JSON 编解码
+- [ ] HTTP External Server
+- [ ] WebSocket External Server
+- [ ] FlowContext 扩展（Session, broadcast）
+- [ ] InOut 插件扩展（SessionInOut, AccessLogInOut）
+- [ ] 集成 Demo
 
 ### Phase 3 · 分布式（待规划）
 - [ ] Logic Server 抽象
@@ -50,6 +57,7 @@
 ### Phase 4 · 扩展（待规划）
 - [ ] Domain Event（Disruptor 等价物）
 - [ ] Room / 房间抽象
+- [ ] Protobuf 编解码
 - [ ] Codegen（TS / C# / GDScript）
 - [ ] Spring/NestJS 集成
 
@@ -57,6 +65,7 @@
 - [ ] 压测/模拟客户端
 - [ ] 全链路 Trace
 - [ ] 文档生成
+- [ ] i18n
 
 ---
 
