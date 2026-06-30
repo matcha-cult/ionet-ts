@@ -47,21 +47,21 @@ ioGame 是 ionet 的早期演化版本（v21.34 vs v25.5，包名从 `com.iohao.
 
 ionet 的 15 个模块可以直接映射为 TS monorepo 的 15 个包：
 ```
-@ionet/common-kit
-@ionet/core-framework
-@ionet/net-common
-@ionet/net-center
-@ionet/net-server
-@ionet/net-logic-server
-@ionet/external-core
-@ionet/external-netty → @ionet/external-node (用 Node 原生替换 Netty)
-@ionet/run-one
-@ionet/extension-client
-@ionet/extension-codegen
-@ionet/extension-domain-event
-@ionet/extension-jprotobuf → @ionet/extension-protobuf (用 protobufjs)
-@ionet/extension-room
-@ionet/extension-spring → @ionet/extension-nest (用 NestJS)
+@nbb-ionet/common-kit
+@nbb-ionet/core-framework
+@nbb-ionet/net-common
+@nbb-ionet/net-center
+@nbb-ionet/net-server
+@nbb-ionet/net-logic-server
+@nbb-ionet/external-core
+@nbb-ionet/external-netty → @nbb-ionet/external-node (用 Node 原生替换 Netty)
+@nbb-ionet/run-one
+@nbb-ionet/extension-client
+@nbb-ionet/extension-codegen
+@nbb-ionet/extension-domain-event
+@nbb-ionet/extension-jprotobuf → @nbb-ionet/extension-protobuf (用 protobufjs)
+@nbb-ionet/extension-room
+@nbb-ionet/extension-spring → @nbb-ionet/extension-nest (用 NestJS)
 ```
 
 ioGame 的 5 个顶层模块在移植时需要**先内部拆分**再移植，等于多做一次重构。
@@ -132,7 +132,7 @@ Node.js 的 `AsyncLocalStorage` 天然对应 FlowContext。每个请求绑定一
 - **TSyringe / InversifyJS**：轻量 DI
 - **NestJS**：完整 Spring 等价物（对应 `extension-spring` → `extension-nest`）
 
-→ 推荐：core 不用 DI，提供可选 `@ionet/nest` 适配 NestJS。
+→ 推荐：core 不用 DI，提供可选 `@nbb-ionet/nest` 适配 NestJS。
 
 ### 决策 5：协议层
 

@@ -1,0 +1,37 @@
+# nbb-ionet systemd template service
+# Usage:
+#   1. Create system user: sudo useradd -r -s /bin/false nbb-ionet
+#   2. Install service: sudo cp nbb-ionet@.service /etc/systemd/system/
+#   3. Reload systemd: sudo systemctl daemon-reload
+#   4. Start instances: sudo systemctl start nbb-ionet@{0,1,2}
+#   5. Enable on boot: sudo systemctl enable nbb-ionet@{0,1,2}
+#   6. View logs: journalctl -u nbb-ionet@0 -f
+
+[Unit]
+Description=nbb-ionet cluster instance %i
+After=network.target redis.service
+Requires=redis.service
+
+[Service]
+Type=simple
+User=nbb-ionet
+WorkingDirectory=/opt/ionet-ts
+ExecStart=/usr/bin/node demos/demo-cluster/dist/main.js
+Restart=on-failure
+RestartSec=5
+
+Environment=NODE_ENV=production
+Environment=REDIS_HOST=127.0.0.1
+Environment=REDIS_PORT=6379
+Environment=INSTANCE_ID=nbb-ionet-%i
+Environment=HTTP_PORT=808%i
+Environment=WS_PORT=908%i
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nbb-ionet
+
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

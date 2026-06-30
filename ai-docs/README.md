@@ -13,7 +13,9 @@
 | [phase1-core-skeleton.md](./phase1-core-skeleton.md) | **Phase 1 详细任务清单**（类级别映射 + 验收标准） |
 | [phase2-external-server.md](./phase2-external-server.md) | **Phase 2 详细任务清单**（External Server 抽象 + 验收标准） |
 | [phase2-review.md](./phase2-review.md) | **Phase 2 回顾**（架构决策、测试覆盖、性能指标） |
-| [phase3-distributed.md](./phase3-distributed.md) | **Phase 3 详细任务清单**（分布式架构、Aeron 通信、Logic Server） |
+| [phase3-distributed.md](./phase3-distributed.md) | **Phase 3 详细任务清单**（Redis IPC 分布式通信） |
+| [phase3-review.md](./phase3-review.md) | **Phase 3 回顾**（架构决策、测试覆盖、文件清单） |
+| [phase4-extensions.md](./phase4-extensions.md) | **Phase 4 详细任务清单**（Domain Event、Protobuf、Codegen、NestJS 集成） |
 
 ## 任务跟踪（超长期）
 
@@ -28,7 +30,7 @@
 - [x] 与用户确认蓝本选择 → **决定：以 ionet 为蓝本**
 - [x] 制定 Phase 1 详细任务清单 → `phase1-core-skeleton.md`
 - [x] 确定技术栈 → **pnpm workspaces + tsup + vitest + reflect-metadata**
-- [x] 确定包名前缀 → **`@ionet/*`**
+- [x] 确定包名前缀 → **`@nbb-ionet/*`**
 - [x] 搭建 TS monorepo 脚手架 → `packages/` 目录结构
 
 ### Phase 1 · 核心骨架 ✅ 完成
@@ -55,30 +57,50 @@
 
 详细回顾见 [phase2-review.md](./phase2-review.md)
 
-### Phase 3 · 分布式（待规划）
+### Phase 3 · Redis IPC 分布式通信 ✅ 完成
 
 详细任务清单见 [phase3-distributed.md](./phase3-distributed.md)
 
-- [ ] Logic Server 抽象
-  - [ ] LogicServerBuilder
-  - [ ] ActionCommandRegion 注册
-  - [ ] 与 External Server 的 Aeron 通信
-- [ ] Center Server（可选）
-  - [ ] 服务发现
-  - [ ] 路由协调
-  - [ ] 健康检查
-- [ ] 跨进程/跨机器通信
-  - [ ] Aeron UDP 传输层
-  - [ ] SBE 消息编码
-  - [ ] Publication/Subscription 管理
-- [ ] EventBus / 广播
-  - [ ] 分布式事件总线
-  - [ ] 跨服务广播
-  - [ ] 事件订阅/发布
+- [x] Redis 基础设施
+  - [x] `@nbb-ionet/redis` 包
+  - [x] RedisClient 封装
+  - [x] 连接池管理
+- [x] Redis Pub/Sub 消息系统
+  - [x] 跨进程消息发布/订阅
+  - [x] 消息路由器
+  - [x] 消息类型定义
+- [x] 分布式 Session 管理
+  - [x] RedisSessionStore
+  - [x] 会话序列化（bigint / Map）
+  - [x] TTL 支持
+- [x] 分布式广播系统
+  - [x] DistributedBroadcaster
+  - [x] 用户-实例映射
+  - [x] 消息路由
+- [x] 分布式房间系统
+  - [x] DistributedRoom
+  - [x] 房间状态同步
+  - [x] 房间消息路由
+- [x] 分布式锁
+  - [x] DistributedLock
+  - [x] Lua 脚本原子操作
+  - [x] Watchdog 自动续期
+- [x] 多实例部署配置
+  - [x] 实例标识与注册（支持 INSTANCE_ID 环境变量）
+  - [x] 优雅关闭 GracefulShutdown
+  - [x] 多种部署方式示例（PM2/Docker/systemd/K8s）
+- [x] 集成 Demo
+  - [x] `demos/demo-cluster/` 多实例场景
+  - ⚠️ 石头剪刀布 demo：案例选型错误（客户端驱动），但已验证 Redis Pub/Sub、状态存储、跨实例通信的连通性
+- [x] 78 tests passing
 
-### Phase 4 · 扩展（待规划）
+详细回顾见 [phase3-review.md](./phase3-review.md)
+
+### Phase 4 · 扩展（待实施）
+
+详细任务清单见 [phase4-extensions.md](./phase4-extensions.md)
+
 - [ ] Domain Event（Disruptor 等价物）
-- [ ] Room / 房间抽象
 - [ ] Protobuf 编解码
 - [ ] Codegen（TS / C# / GDScript）
 - [ ] Spring/NestJS 集成

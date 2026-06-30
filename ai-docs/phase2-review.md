@@ -293,7 +293,7 @@ class RateLimitInOut implements ActionMethodInOut {
 **Demo 验证**:
 ```bash
 # 启动服务器
-pnpm --filter @ionet/demo start
+pnpm --filter @nbb-ionet/demo start
 
 # HTTP 请求
 curl -X POST http://localhost:8080/api/1/1 -H "Content-Type: application/json" -d '{"data":"Alice"}'
@@ -348,8 +348,8 @@ wscat -c ws://localhost:8081/ws
 
 - `packages/core-framework/src/index.ts` — 导出新增的 Protocol、Session、InOut 类型
 - `packages/core-framework/src/core/flow/index.ts` — 导出 Session、InOut 扩展
-- `packages/demo/src/main.ts` — 升级为双协议服务器
-- `packages/demo/package.json` — 添加 @ionet/external-server 依赖
+- `demos/demo/src/main.ts` — 升级为双协议服务器
+- `demos/demo/package.json` — 添加 @nbb-ionet/external-server 依赖
 
 ---
 

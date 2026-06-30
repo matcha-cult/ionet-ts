@@ -1,9 +1,13 @@
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http';
-import { type BarSkeleton, CmdInfo, createResponseMessage } from '@ionet/core-framework';
+import { type BarSkeleton, CmdInfo, createResponseMessage } from '@nbb-ionet/core-framework';
 import { BaseExternalServer, type ExternalServerOptions } from '../external-server.js';
 
 export interface HttpExternalServerOptions extends ExternalServerOptions {
   pathPrefix?: string;
+}
+
+function isWrappedData(value: unknown): value is { data?: unknown } {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 export class HttpExternalServer extends BaseExternalServer {
@@ -64,8 +68,8 @@ export class HttpExternalServer extends BaseExternalServer {
     let data: unknown = undefined;
     if (body) {
       try {
-        const decoded = this.codec.decode(body) as { data?: unknown };
-        data = decoded.data;
+        const decoded = this.codec.decode(body);
+        data = isWrappedData(decoded) ? decoded.data : decoded;
       } catch {
         res.statusCode = 400;
         res.end(JSON.stringify({ error: 'Invalid request body' }));

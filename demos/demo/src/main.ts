@@ -10,8 +10,8 @@ import {
   DefaultSessionManager,
   RateLimitInOut,
   AccessLogInOut,
-} from '@ionet/core-framework';
-import { HttpExternalServer, WebSocketExternalServer } from '@ionet/external-server';
+} from '@nbb-ionet/core-framework';
+import { HttpExternalServer, WebSocketExternalServer } from '@nbb-ionet/external-server';
 
 const HALL_CMD = {
   cmd: 1,

@@ -1,7 +1,7 @@
 {
-  "name": "@nbb-ionet/common-kit",
+  "name": "@nbb-ionet/redis",
   "version": "0.1.0",
-  "description": "ionet common utilities",
+  "description": "ionet Redis infrastructure — IPC, Session, Lock, Distributed Broadcast/Room",
   "author": "NbbJack",
   "type": "module",
   "main": "dist/index.js",
@@ -18,7 +18,9 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "reflect-metadata": "^0.2.2"
+    "@nbb-ionet/common-kit": "workspace:*",
+    "@nbb-ionet/core-framework": "workspace:*",
+    "ioredis": "^5.4.0"
   },
   "devDependencies": {
     "@swc/core": "^1.5.0",

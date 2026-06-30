@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ionet-cluster
+  labels:
+    app: ionet
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ionet
+  template:
+    metadata:
+      labels:
+        app: ionet
+    spec:
+      containers:
+        - name: ionet
+          image: ionet-ts:latest
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 9080
+              name: ws
+          env:
+            - name: NODE_ENV
+              value: 'production'
+            - name: REDIS_HOST
+              value: 'redis-svc'
+            - name: REDIS_PORT
+              value: '6379'
+            - name: HTTP_PORT
+              value: '8080'
+            - name: WS_PORT
+              value: '9080'
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: '100m'
+              memory: '128Mi'
+            limits:
+              cpu: '500m'
+              memory: '512Mi'
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ionet-svc
+spec:
+  selector:
+    app: ionet
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+    - name: ws
+      port: 9080
+      targetPort: 9080
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-svc
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+          command: ['redis-server', '--appendonly', 'yes']
+          resources:
+            requests:
+              cpu: '100m'
+              memory: '128Mi'
+            limits:
+              cpu: '250m'
+              memory: '256Mi'

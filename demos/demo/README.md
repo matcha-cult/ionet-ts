@@ -1,11 +1,11 @@
-# @ionet/demo
+# @nbb-ionet/demo
 
 Phase 1 最小可运行示例，演示 ionet core-framework 的基本用法。
 
 ## 运行
 
 ```bash
-pnpm --filter @ionet/demo start
+pnpm --filter @nbb-ionet/demo start
 ```
 
 ## 功能展示

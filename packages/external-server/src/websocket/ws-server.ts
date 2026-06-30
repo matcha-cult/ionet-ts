@@ -1,5 +1,5 @@
 import { WebSocketServer, WebSocket } from 'ws';
-import { type BarSkeleton, createResponseMessage } from '@ionet/core-framework';
+import { type BarSkeleton, createResponseMessage } from '@nbb-ionet/core-framework';
 import { BaseExternalServer, type ExternalServerOptions } from '../external-server.js';
 
 export interface WebSocketExternalServerOptions extends ExternalServerOptions {

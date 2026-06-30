@@ -9,7 +9,7 @@
 ### 任务清单
 
 - [ ] **M1**: 确定 TS monorepo 工具（pnpm workspaces / turborepo / nx 选一）
-- [ ] **M2**: 确定包名前缀（建议 `@ionet/*`）
+- [ ] **M2**: 确定包名前缀（建议 `@nbb-ionet/*`）
 - [ ] **M3**: 搭建根目录结构：
   ```
   ionet-ts/
@@ -78,8 +78,8 @@
 
 ### 验收标准
 ```typescript
-import { ActionController, ActionMethod } from '@ionet/core-framework';
-import { CmdInfo } from '@ionet/core-framework';
+import { ActionController, ActionMethod } from '@nbb-ionet/core-framework';
+import { CmdInfo } from '@nbb-ionet/core-framework';
 
 const HALL_CMD = { cmd: 1, loginVerify: 1, hello: 2 } as const;
 
@@ -257,7 +257,7 @@ expect(response.data.nickname).toBe('Alice');
 
 ### 任务清单
 
-- [ ] **7.1**: 创建 `packages/demo/` 包
+- [ ] **7.1**: 创建 `demos/demo/` 包
 - [ ] **7.2**: 实现 `HallAction`（loginVerify + hello 两个方法）
 - [ ] **7.3**: 实现 `HallCmd` 常量接口
 - [ ] **7.4**: 启动 BarSkeleton 并通过代码调用 Action
@@ -266,7 +266,7 @@ expect(response.data.nickname).toBe('Alice');
 
 ### 验收标准
 ```bash
-$ pnpm --filter @ionet/demo start
+$ pnpm --filter @nbb-ionet/demo start
 [DebugInOut] cmd=1 subCmd=1 data='Alice'
 [DebugInOut] cmd=1 subCmd=1 result={id: 12345, nickname: 'Alice'}
 [DebugInOut] cmd=1 subCmd=2 result='hello 12345'

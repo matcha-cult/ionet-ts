@@ -1,7 +1,8 @@
 {
-  "name": "@ionet/core-framework",
+  "name": "@nbb-ionet/core-framework",
   "version": "0.1.0",
   "description": "ionet core framework — Action routing, FlowContext, BarSkeleton",
+  "author": "NbbJack",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -17,7 +18,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@ionet/common-kit": "workspace:*",
+    "@nbb-ionet/common-kit": "workspace:*",
     "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {

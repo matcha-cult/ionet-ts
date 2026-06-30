@@ -1,11 +1,11 @@
-# @ionet/core-framework
+# @nbb-ionet/core-framework
 
 ionet TypeScript 移植的核心框架模块，提供 Action 路由、FlowContext、BarSkeleton 运行时。
 
 ## 安装
 
 ```bash
-pnpm add @ionet/core-framework reflect-metadata
+pnpm add @nbb-ionet/core-framework reflect-metadata
 ```
 
 ## 快速开始
@@ -17,7 +17,7 @@ import {
   ActionMethod,
   BarSkeletonBuilder,
   DebugInOut,
-} from '@ionet/core-framework';
+} from '@nbb-ionet/core-framework';
 
 const CMD = { cmd: 1, hello: 1 } as const;
 

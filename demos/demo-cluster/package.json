@@ -1,0 +1,25 @@
+{
+  "name": "@nbb-ionet/demo-cluster",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ionet Phase 3 cluster demo — multi-instance with Redis IPC + turn-based game",
+  "author": "NbbJack",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "game": "tsx src/game/demo-client.ts",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@nbb-ionet/common-kit": "workspace:*",
+    "@nbb-ionet/core-framework": "workspace:*",
+    "@nbb-ionet/external-server": "workspace:*",
+    "@nbb-ionet/redis": "workspace:*",
+    "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.11.0",
+    "typescript": "^5.4.0"
+  }
+}

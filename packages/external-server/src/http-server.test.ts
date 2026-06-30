@@ -4,7 +4,7 @@ import {
   ActionController,
   ActionMethod,
   BarSkeletonBuilder,
-} from '@ionet/core-framework';
+} from '@nbb-ionet/core-framework';
 import { HttpExternalServer } from './http/http-server.js';
 
 const TEST_CMD = { cmd: 100, echo: 1 } as const;

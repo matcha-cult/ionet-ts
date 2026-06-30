@@ -1,5 +1,5 @@
-import { type BarSkeleton } from '@ionet/core-framework';
-import { type ProtocolCodec } from '@ionet/core-framework';
+import { type BarSkeleton } from '@nbb-ionet/core-framework';
+import { type ProtocolCodec } from '@nbb-ionet/core-framework';
 
 export interface ExternalServerOptions {
   port: number;

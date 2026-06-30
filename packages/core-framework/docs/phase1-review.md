@@ -131,8 +131,8 @@ Total:            74 tests, all passing
 
 ## 构建产物
 
-- `@ionet/common-kit`: 4.07 KB (ESM) + 3.47 KB (DTS)
-- `@ionet/core-framework`: 16.33 KB (ESM) + 8.04 KB (DTS)
+- `@nbb-ionet/common-kit`: 4.07 KB (ESM) + 3.47 KB (DTS)
+- `@nbb-ionet/core-framework`: 16.33 KB (ESM) + 8.04 KB (DTS)
 
 ---
 

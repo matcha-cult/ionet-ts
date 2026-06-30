@@ -5,7 +5,7 @@ import {
   ActionController,
   ActionMethod,
   BarSkeletonBuilder,
-} from '@ionet/core-framework';
+} from '@nbb-ionet/core-framework';
 import { WebSocketExternalServer } from './websocket/ws-server.js';
 
 const TEST_CMD = { cmd: 200, echo: 1 } as const;
