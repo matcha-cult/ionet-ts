@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "ionet-ai": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--project",
+        "/home/nbb/projects/ionet-ai",
+        "--extra",
+        "mcp",
+        "ionet-ai",
+        "serve",
+        "mcp"
+      ]
+    }
+  }
+}
