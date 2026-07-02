@@ -35,6 +35,10 @@ export class ActionCommandRegion {
     return this.subActionCommandMap.size;
   }
 
+  getSubCmds(): number[] {
+    return Array.from(this.subActionCommandMap.keys());
+  }
+
   values(): ActionCommand[] {
     return Array.from(this.subActionCommandMap.values());
   }
@@ -68,5 +72,9 @@ export class ActionCommandRegions {
       result.push(...region.values());
     }
     return result;
+  }
+
+  getAllRegions(): Map<number, ActionCommandRegion> {
+    return new Map(this.regionMap);
   }
 }

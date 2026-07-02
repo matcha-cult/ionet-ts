@@ -66,20 +66,20 @@
 **目标**：搭建 Redis 连接管理和基础工具类
 
 **子任务**：
-- [ ] 创建 `@nbb-ionet/redis` 包
-  - [ ] package.json, tsconfig.json, tsup.config.ts
-  - [ ] 依赖：ioredis, @nbb-ionet/common-kit
-- [ ] 实现 RedisClient 封装类
-  - [ ] 连接管理（connect/disconnect/reconnect）
-  - [ ] 配置选项（host, port, password, db）
-  - [ ] 健康检查（ping）
-- [ ] 实现 Redis 连接池
-  - [ ] 支持多 DB 隔离
-  - [ ] 连接复用
-- [ ] 编写单元测试
-  - [ ] 连接/断开测试
-  - [ ] 基础命令测试（get/set/del）
-  - [ ] 重连机制测试
+- [x] 创建 `@nbb-ionet/redis` 包
+  - [x] package.json, tsconfig.json, tsup.config.ts
+  - [x] 依赖：ioredis, @nbb-ionet/common-kit
+- [x] 实现 RedisClient 封装类
+  - [x] 连接管理（connect/disconnect/reconnect）
+  - [x] 配置选项（host, port, password, db）
+  - [x] 健康检查（ping）
+- [x] 实现 Redis 连接池
+  - [x] 支持多 DB 隔离
+  - [x] 连接复用
+- [x] 编写单元测试
+  - [x] 连接/断开测试
+  - [x] 基础命令测试（get/set/del）
+  - [x] 重连机制测试
 
 **验收标准**：
 - ✅ Redis 连接稳定，支持自动重连
@@ -93,23 +93,23 @@
 **目标**：实现跨进程的消息发布/订阅机制
 
 **子任务**：
-- [ ] 实现 RedisPubSub 类
-  - [ ] publish(channel, message)
-  - [ ] subscribe(channel, callback)
-  - [ ] unsubscribe(channel)
-  - [ ] 消息序列化（JSON）
-- [ ] 实现消息类型定义
-  - [ ] `BroadcastMessage`：全局广播
-  - [ ] `RoomMessage`：房间消息
-  - [ ] `UserMessage`：用户私聊
-  - [ ] `SystemMessage`：系统通知
-- [ ] 实现消息路由器
-  - [ ] 根据消息类型分发到对应处理器
-  - [ ] 支持通配符订阅（如 `room:*`）
-- [ ] 编写单元测试
-  - [ ] 发布/订阅基础测试
-  - [ ] 多订阅者测试
-  - [ ] 消息序列化测试
+- [x] 实现 RedisPubSub 类
+  - [x] publish(channel, message)
+  - [x] subscribe(channel, callback)
+  - [x] unsubscribe(channel)
+  - [x] 消息序列化（JSON）
+- [x] 实现消息类型定义
+  - [x] `BroadcastMessage`：全局广播
+  - [x] `RoomMessage`：房间消息
+  - [x] `UserMessage`：用户私聊
+  - [x] `SystemMessage`：系统通知
+- [x] 实现消息路由器
+  - [x] 根据消息类型分发到对应处理器
+  - [x] 支持通配符订阅（如 `room:*`）
+- [x] 编写单元测试
+  - [x] 发布/订阅基础测试
+  - [x] 多订阅者测试
+  - [x] 消息序列化测试
 
 **验收标准**：
 - ✅ 消息能在多个实例间正确传递
@@ -124,23 +124,23 @@
 **目标**：将会话存储从内存迁移到 Redis，支持跨实例会话共享
 
 **子任务**：
-- [ ] 实现 RedisSessionStore
-  - [ ] 实现 SessionStore 接口
-  - [ ] get(sessionId)：从 Redis 读取
-  - [ ] save(sessionId, session)：写入 Redis
-  - [ ] remove(sessionId)：删除 Redis
-  - [ ] TTL 支持（默认 30 分钟）
-- [ ] 实现会话序列化
-  - [ ] bigint → string（Redis 不支持 bigint）
-  - [ ] Map → object
-  - [ ] 反序列化恢复
-- [ ] 更新 DefaultSessionManager
-  - [ ] 支持注入 RedisSessionStore
-  - [ ] 会话缓存策略（本地缓存 + Redis）
-- [ ] 编写单元测试
-  - [ ] 会话读写测试
-  - [ ] TTL 过期测试
-  - [ ] 序列化/反序列化测试
+- [x] 实现 RedisSessionStore
+  - [x] 实现 SessionStore 接口
+  - [x] get(sessionId)：从 Redis 读取
+  - [x] save(sessionId, session)：写入 Redis
+  - [x] remove(sessionId)：删除 Redis
+  - [x] TTL 支持（默认 30 分钟）
+- [x] 实现会话序列化
+  - [x] bigint → string（Redis 不支持 bigint）
+  - [x] Map → object
+  - [x] 反序列化恢复
+- [x] 更新 DefaultSessionManager
+  - [x] 支持注入 RedisSessionStore
+  - [x] 会话缓存策略（本地缓存 + Redis）
+- [x] 编写单元测试
+  - [x] 会话读写测试
+  - [x] TTL 过期测试
+  - [x] 序列化/反序列化测试
 
 **验收标准**：
 - ✅ 用户登录实例 A，请求实例 B 能识别会话
@@ -155,21 +155,21 @@
 **目标**：实现跨实例的用户广播能力
 
 **子任务**：
-- [ ] 实现 DistributedBroadcaster
-  - [ ] broadcastToAll(message)：广播给所有在线用户
-  - [ ] broadcastToUser(userId, message)：广播给指定用户（可能在其他实例）
-  - [ ] broadcastToRoom(roomId, message)：广播给房间内所有用户
-- [ ] 实现用户-实例映射
-  - [ ] Redis Hash：`user:instance` 映射
-  - [ ] 用户连接时注册到 Redis
-  - [ ] 用户断开时从 Redis 移除
-- [ ] 实现广播消息路由
-  - [ ] 本地用户：直接推送
-  - [ ] 远程用户：通过 Redis pub/sub 转发
-- [ ] 编写单元测试
-  - [ ] 全局广播测试
-  - [ ] 用户定向广播测试
-  - [ ] 房间广播测试
+- [x] 实现 DistributedBroadcaster
+  - [x] broadcastToAll(message)：广播给所有在线用户
+  - [x] broadcastToUser(userId, message)：广播给指定用户（可能在其他实例）
+  - [x] broadcastToRoom(roomId, message)：广播给房间内所有用户
+- [x] 实现用户-实例映射
+  - [x] Redis Hash：`user:instance` 映射
+  - [x] 用户连接时注册到 Redis
+  - [x] 用户断开时从 Redis 移除
+- [x] 实现广播消息路由
+  - [x] 本地用户：直接推送
+  - [x] 远程用户：通过 Redis pub/sub 转发
+- [x] 编写单元测试
+  - [x] 全局广播测试
+  - [x] 用户定向广播测试
+  - [x] 房间广播测试
 
 **验收标准**：
 - ✅ 广播消息能到达所有实例的用户
@@ -184,23 +184,23 @@
 **目标**：实现跨实例的房间管理和状态同步
 
 **子任务**：
-- [ ] 实现 DistributedRoom
-  - [ ] 房间元数据存储到 Redis
-  - [ ] 房间成员列表存储到 Redis Set
-  - [ ] 房间状态变更通过 pub/sub 同步
-- [ ] 实现房间操作
-  - [ ] createRoom(roomId, options)
-  - [ ] joinRoom(roomId, userId)
-  - [ ] leaveRoom(roomId, userId)
-  - [ ] destroyRoom(roomId)
-- [ ] 实现房间消息路由
-  - [ ] 房间创建/销毁：广播到所有实例
-  - [ ] 用户加入/离开：同步成员列表
-  - [ ] 房间内消息：通过 pub/sub 传递
-- [ ] 编写单元测试
-  - [ ] 房间创建/销毁测试
-  - [ ] 跨实例加入/离开测试
-  - [ ] 房间消息同步测试
+- [x] 实现 DistributedRoom
+  - [x] 房间元数据存储到 Redis
+  - [x] 房间成员列表存储到 Redis Set
+  - [x] 房间状态变更通过 pub/sub 同步
+- [x] 实现房间操作
+  - [x] createRoom(roomId, options)
+  - [x] joinRoom(roomId, userId)
+  - [x] leaveRoom(roomId, userId)
+  - [x] destroyRoom(roomId)
+- [x] 实现房间消息路由
+  - [x] 房间创建/销毁：广播到所有实例
+  - [x] 用户加入/离开：同步成员列表
+  - [x] 房间内消息：通过 pub/sub 传递
+- [x] 编写单元测试
+  - [x] 房间创建/销毁测试
+  - [x] 跨实例加入/离开测试
+  - [x] 房间消息同步测试
 
 **验收标准**：
 - ✅ 用户在不同实例能加入同一房间
@@ -215,22 +215,22 @@
 **目标**：实现基于 Redis 的分布式锁，保证关键操作的原子性
 
 **子任务**：
-- [ ] 实现 RedisDistributedLock
-  - [ ] acquire(key, ttl)：获取锁
-  - [ ] release(key)：释放锁
-  - [ ] 自动续期（watchdog 机制）
-- [ ] 实现锁装饰器
-  - [ ] `@Lock(key)` 装饰器
-  - [ ] 自动获取/释放锁
-  - [ ] 超时处理
-- [ ] 实现常见锁场景
-  - [ ] 道具交易锁
-  - [ ] 金币转账锁
-  - [ ] 房间操作锁
-- [ ] 编写单元测试
-  - [ ] 锁获取/释放测试
-  - [ ] 竞争条件测试
-  - [ ] 超时处理测试
+- [x] 实现 RedisDistributedLock
+  - [x] acquire(key, ttl)：获取锁
+  - [x] release(key)：释放锁
+  - [x] 自动续期（watchdog 机制）
+- [x] 实现锁装饰器
+  - [x] `@Lock(key)` 装饰器
+  - [x] 自动获取/释放锁
+  - [x] 超时处理
+- [x] 实现常见锁场景
+  - [x] 道具交易锁
+  - [x] 金币转账锁
+  - [x] 房间操作锁
+- [x] 编写单元测试
+  - [x] 锁获取/释放测试
+  - [x] 竞争条件测试
+  - [x] 超时处理测试
 
 **验收标准**：
 - ✅ 同一时刻只有一个实例能持有锁
@@ -245,26 +245,26 @@
 **目标**：提供多实例部署的配置示例和最佳实践
 
 **子任务**：
-- [ ] 实现实例标识
-  - [ ] 从环境变量读取实例 ID（`INSTANCE_ID` 或自动生成）
-  - [ ] 实例注册到 Redis
-- [ ] 实现优雅关闭
-  - [ ] 接收 SIGINT/SIGTERM 信号
-  - [ ] 清理 Redis 中的实例数据
-  - [ ] 等待请求处理完成
-- [ ] 提供部署配置示例
-  - [ ] PM2: `ecosystem.config.js`
-  - [ ] Docker: `docker-compose.yml`
-  - [ ] systemd: service 文件
-  - [ ] Kubernetes: deployment.yaml
-- [ ] 编写部署文档
-  - [ ] 各部署方式的启动命令
-  - [ ] 监控命令
-  - [ ] 日志查看
-- [ ] 编写集成测试
-  - [ ] 多实例启动测试
-  - [ ] 负载均衡测试
-  - [ ] 故障转移测试
+- [x] 实现实例标识
+  - [x] 从环境变量读取实例 ID（`INSTANCE_ID` 或自动生成）
+  - [x] 实例注册到 Redis
+- [x] 实现优雅关闭
+  - [x] 接收 SIGINT/SIGTERM 信号
+  - [x] 清理 Redis 中的实例数据
+  - [x] 等待请求处理完成
+- [x] 提供部署配置示例
+  - [x] PM2: `ecosystem.config.js`
+  - [x] Docker: `docker-compose.yml`
+  - [x] systemd: service 文件
+  - [x] Kubernetes: deployment.yaml
+- [x] 编写部署文档
+  - [x] 各部署方式的启动命令
+  - [x] 监控命令
+  - [x] 日志查看
+- [x] 编写集成测试
+  - [x] 多实例启动测试
+  - [x] 负载均衡测试
+  - [x] 故障转移测试
 
 **验收标准**：
 - ✅ 多实例能同时运行
@@ -280,24 +280,24 @@
 **目标**：演示完整的多实例 + Redis IPC 场景
 
 **子任务**：
-- [ ] 创建 `demos/demo-cluster/`
-- [ ] 实现多实例场景
-  - [ ] 用户登录（会话共享）
-  - [ ] 房间聊天（跨实例）
-  - [ ] 全局广播
-  - [ ] 道具交易（分布式锁）
-- [ ] 编写测试脚本
-  - [ ] 模拟 100 用户登录
-  - [ ] 跨实例消息测试
-  - [ ] 并发交易测试
-- [ ] 编写监控脚本
-  - [ ] 实时显示各实例连接数
-  - [ ] Redis 数据查看
-  - [ ] 消息流转追踪
-- [ ] 编写文档
-  - [ ] 部署指南
-  - [ ] 场景说明
-  - [ ] 性能指标
+- [x] 创建 `demos/demo-cluster/`
+- [x] 实现多实例场景
+  - [x] 用户登录（会话共享）
+  - [x] 房间聊天（跨实例）
+  - [x] 全局广播
+  - [x] 道具交易（分布式锁）
+- [x] 编写测试脚本
+  - [x] 模拟 100 用户登录
+  - [x] 跨实例消息测试
+  - [x] 并发交易测试
+- [x] 编写监控脚本
+  - [x] 实时显示各实例连接数
+  - [x] Redis 数据查看
+  - [x] 消息流转追踪
+- [x] 编写文档
+  - [x] 部署指南
+  - [x] 场景说明
+  - [x] 性能指标
 
 **验收标准**：
 - ✅ 所有场景在多实例下正常运行
@@ -312,23 +312,23 @@
 **目标**：完成 Phase 3 文档，总结分布式架构设计
 
 **子任务**：
-- [ ] 编写 `phase3-review.md`
-  - [ ] 架构设计文档
-  - [ ] Redis IPC 机制
-  - [ ] 性能指标
-  - [ ] 已知问题与改进方向
-- [ ] 更新 `ai-docs/README.md`
-  - [ ] 标记 Phase 3 完成
-  - [ ] 添加 Phase 3 详细任务清单链接
-- [ ] 创建 Phase 4 任务清单
-  - [ ] `phase4-extensions.md`
-  - [ ] Domain Event（领域事件）
-  - [ ] Protobuf 编解码
-  - [ ] 代码生成（Codegen）
-  - [ ] Spring/NestJS 集成
-- [ ] 更新项目 README
-  - [ ] 添加集群部署示例
-  - [ ] 更新架构图
+- [x] 编写 `phase3-review.md`
+  - [x] 架构设计文档
+  - [x] Redis IPC 机制
+  - [x] 性能指标
+  - [x] 已知问题与改进方向
+- [x] 更新 `ai-docs/README.md`
+  - [x] 标记 Phase 3 完成
+  - [x] 添加 Phase 3 详细任务清单链接
+- [x] 创建 Phase 4 任务清单
+  - [x] `phase4-extensions.md`
+  - [x] Domain Event（领域事件）
+  - [x] Protobuf 编解码
+  - [x] 代码生成（Codegen）
+  - [x] Spring/NestJS 集成
+- [x] 更新项目 README
+  - [x] 添加集群部署示例
+  - [x] 更新架构图
 
 **验收标准**：
 - ✅ 文档完整、清晰

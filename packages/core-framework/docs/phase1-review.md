@@ -4,7 +4,7 @@
 
 ## 完成状态
 
-所有 Section 0-7 已完成，Section 8（文档）进行中。
+所有 Section 0-8 已完成。
 
 ### 验收标准达成
 
@@ -12,7 +12,7 @@
 |------|------|
 | `pnpm install` 成功 | ✅ |
 | `pnpm build` 成功 | ✅ |
-| `pnpm test` 跑通（48 个测试） | ✅ |
+| `pnpm test` 跑通（206 个测试） | ✅ |
 | Demo 可运行并打印 DebugInOut 日志 | ✅ |
 
 ## 模块结构
@@ -124,16 +124,19 @@ packages/
 
 ```
 common-kit:       26 tests (log, safe-kit, concurrent, global-config)
-core-framework:   48 tests (decorators, cmd-info, flow-context, action-command, bar-skeleton, inout)
+core-framework:   81 tests (decorators, cmd-info, flow-context, action-command, bar-skeleton, inout)
+external-server:  10 tests (http, websocket)
+redis:            78 tests (client, pub-sub, session, lock, broadcaster, room, shutdown)
+extension-nestjs: 11 tests (module config, action registration, lifecycle)
 ─────────────────────────────
-Total:            74 tests, all passing
+Total:            206 tests, all passing
 ```
 
 ## 构建产物
 
 - `@nbb-ionet/common-kit`: 4.07 KB (ESM) + 3.47 KB (DTS)
-- `@nbb-ionet/core-framework`: 16.33 KB (ESM) + 8.04 KB (DTS)
+- `@nbb-ionet/core-framework`: 31.45 KB (ESM) + DTS
 
 ---
 
-**Phase 1 状态：✅ 完成**
+**Phase 1 状态：✅ 完成（所有 8 个 Section 全部完成）**

@@ -8,6 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **TypeScript 构建校验**: 发生任何代码修改后，必须执行 TypeScript 构建校验。只要你改了代码，不论改动大小，结束前必须执行并报告：`pnpm -w run build`。若校验失败：(1) 优先修复；(2) 若无法完全修复，必须明确列出：文件路径、错误信息、根本原因、最小修改建议。
 
+- **任务清单标记**: 当 `ai-docs/` 或其他文档中存在带标记的任务清单（如 `- [ ]` 或 `- [x]`）时，完成对应任务后**必须**更新文档将 `- [ ]` 改为 `- [x]`。不要只口头说"完成了"而忘记回写标记。这条规则适用于所有 phase 文档、设计文档中的任务列表。
+
 The actual Maven project root is `ionet/` (this top-level `ionet-ts/` is only a wrapper directory). All `mvn` commands and file paths below are relative to `ionet/`.
 
 ## Project
