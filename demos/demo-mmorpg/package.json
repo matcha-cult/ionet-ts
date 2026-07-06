@@ -1,0 +1,25 @@
+{
+  "name": "@nbb-ionet/demo-mmorpg",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ionet MMORPG demo with login, user, item, and idle production queue",
+  "author": "NbbJack",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@nbb-ionet/common-kit": "workspace:*",
+    "@nbb-ionet/core-framework": "workspace:*",
+    "@nbb-ionet/external-server": "workspace:*",
+    "@nbb-ionet/redis": "workspace:*",
+    "jsonwebtoken": "^9.0.2",
+    "reflect-metadata": "^0.2.2"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.6",
+    "tsx": "^4.11.0",
+    "typescript": "^5.4.0"
+  }
+}

@@ -16,3 +16,4 @@ export {
   type InstanceEventPayload,
   createIpcMessage,
 } from './redis-types.js';
+export { DistributedBroadcasterDecorator } from './distributed-broadcaster-decorator.js';
