@@ -19,6 +19,7 @@ export class BarSkeleton {
   readonly actionCommandRegions: ActionCommandRegions;
   readonly inOutChain: InOutChain;
   private readonly setting: BarSkeletonSetting;
+  private readonly actionCommandParser = new DefaultActionCommandParser();
 
   constructor(
     actionCommandRegions: ActionCommandRegions,
@@ -34,6 +35,17 @@ export class BarSkeleton {
     for (const inOut of inOuts) {
       this.inOutChain.add(inOut);
     }
+  }
+
+  /**
+   * 注册单个 Action 类到路由表。可在构建后追加注册（如 NestJS feature 模块场景）。
+   * 未传 instance 时直接 new ActionClass() 实例化（不经过外部 DI 容器）。
+   */
+  addAction(ActionClass: Function, instance?: object): void {
+    const controllerInstance = instance ?? new (ActionClass as new () => object)();
+    this.actionCommandParser.parse(ActionClass, controllerInstance, {
+      actionCommandRegions: this.actionCommandRegions,
+    });
   }
 
   async execute(request: {
@@ -122,15 +134,12 @@ export class BarSkeletonBuilder {
   }
 
   build(): BarSkeleton {
-    const actionCommandRegions = new ActionCommandRegions();
-    const parser = new DefaultActionCommandParser();
-    const context = { actionCommandRegions };
+    const skeleton = new BarSkeleton(new ActionCommandRegions(), this.setting, this.inOuts);
 
     for (const { ActionClass, instance } of this.actionClasses) {
-      const controllerInstance = instance ?? new (ActionClass as new () => object)();
-      parser.parse(ActionClass, controllerInstance, context);
+      skeleton.addAction(ActionClass, instance);
     }
 
-    return new BarSkeleton(actionCommandRegions, this.setting, this.inOuts);
+    return skeleton;
   }
 }

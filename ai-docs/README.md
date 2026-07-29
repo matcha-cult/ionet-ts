@@ -18,6 +18,8 @@
 | [phase3-review.md](./phase3-review.md) | **Phase 3 回顾**（架构决策、测试覆盖、文件清单） |
 | [phase4-extensions.md](./phase4-extensions.md) | **Phase 4 详细任务清单**（Domain Event、Protobuf、Codegen、NestJS 集成） |
 | [phase5-preset-logic.md](./phase5-preset-logic.md) | **Phase 5 详细任务清单**（预制逻辑服抽象类） |
+| [port-consolidation-3in1.md](./port-consolidation-3in1.md) | **端口三合一方案**（:3001/:3002 并入 :3000） |
+| [port-consolidation-3in1-feasibility.md](./port-consolidation-3in1-feasibility.md) | **三合一可行性评估** |
 
 ## 任务跟踪（超长期）
 

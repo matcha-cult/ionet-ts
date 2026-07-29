@@ -32,6 +32,19 @@ class TestAction {
   }
 }
 
+const SECOND_CMD = {
+  cmd: 101,
+  ping: 1,
+} as const;
+
+@ActionController(SECOND_CMD.cmd)
+class SecondAction {
+  @ActionMethod(SECOND_CMD.ping)
+  ping(): string {
+    return 'pong';
+  }
+}
+
 describe('IonetModule', () => {
   describe('forRoot', () => {
     it('should create module with BarSkeleton provider', async () => {
@@ -209,7 +222,7 @@ describe('IonetModule', () => {
   });
 
   describe('forFeature', () => {
-    it('should provide actions for feature modules', async () => {
+    it('should register feature actions into the shared BarSkeleton', async () => {
       const moduleRef = await Test.createTestingModule({
         imports: [
           IonetModule.forRoot({
@@ -224,9 +237,61 @@ describe('IonetModule', () => {
         ],
       }).compile();
 
-      expect(moduleRef).toBeDefined();
+      const skeleton = moduleRef.get<BarSkeleton>(IONET_BAR_SKELETON);
+      const result = await skeleton.execute({
+        cmd: TEST_CMD.cmd,
+        subCmd: TEST_CMD.greet,
+        data: 'World',
+      });
+
+      expect(result.data).toBe('Hello, World!');
 
       await moduleRef.close();
+    });
+
+    it('should merge forRoot actions with multiple forFeature modules', async () => {
+      const moduleRef = await Test.createTestingModule({
+        imports: [
+          IonetModule.forRoot({
+            actions: [TestAction],
+            httpServer: false,
+            wsServer: false,
+            redis: false,
+          }),
+          IonetFeatureModule.forFeature({
+            actions: [SecondAction],
+          }),
+        ],
+      }).compile();
+
+      const skeleton = moduleRef.get<BarSkeleton>(IONET_BAR_SKELETON);
+
+      const forRootResult = await skeleton.execute({
+        cmd: TEST_CMD.cmd,
+        subCmd: TEST_CMD.greet,
+        data: 'World',
+      });
+      expect(forRootResult.data).toBe('Hello, World!');
+
+      const featureResult = await skeleton.execute({
+        cmd: SECOND_CMD.cmd,
+        subCmd: SECOND_CMD.ping,
+      });
+      expect(featureResult.data).toBe('pong');
+
+      await moduleRef.close();
+    });
+
+    it('should throw a friendly error when forRoot is missing', async () => {
+      await expect(
+        Test.createTestingModule({
+          imports: [
+            IonetFeatureModule.forFeature({
+              actions: [TestAction],
+            }),
+          ],
+        }).compile(),
+      ).rejects.toThrow(/forRoot/);
     });
   });
 
