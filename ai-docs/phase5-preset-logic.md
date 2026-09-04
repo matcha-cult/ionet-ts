@@ -415,72 +415,72 @@ const skeleton = new BarSkeletonBuilder()
 
 ### 任务 1：基础设施
 
-- [ ] 创建 `@nbb-ionet/extension-preset-logic` 包
-  - [ ] package.json, tsconfig.json, tsup.config.ts
-  - [ ] 依赖：@nbb-ionet/core-framework
-- [ ] 定义基础类型
-  - [ ] Player, UserInfo, Role
-  - [ ] Item, Equipment, Mail
-  - [ ] Room, GameResult
+- [x] 创建 `@nbb-ionet/extension-preset-logic` 包
+  - [x] package.json, tsconfig.json, tsup.config.ts
+  - [x] 依赖：@nbb-ionet/core-framework
+- [x] 定义基础类型
+  - [x] Player, UserInfo, Role
+  - [x] Item, Equipment, Mail
+  - [x] Room, GameResult
 
 ### 任务 2：用户系统
 
-- [ ] 实现 AbstractAuthAction
-  - [ ] 登录验证流程
-  - [ ] Session 管理
-  - [ ] 登录事件钩子
-- [ ] 实现 AbstractUserAction
-  - [ ] 用户数据 CRUD
-  - [ ] 等级经验计算
-  - [ ] 货币管理
-- [ ] 实现 AbstractMultiRoleUserAction
-  - [ ] 角色列表管理
-  - [ ] 角色创建和删除
-  - [ ] 角色切换
+- [x] 实现 AbstractAuthAction
+  - [x] 登录验证流程
+  - [x] Session 管理
+  - [x] 登录事件钩子
+- [x] 实现 AbstractUserAction
+  - [x] 用户数据 CRUD
+  - [x] 等级经验计算
+  - [x] 货币管理
+- [x] 实现 AbstractMultiRoleUserAction
+  - [x] 角色列表管理
+  - [x] 角色创建和删除
+  - [x] 角色切换
 
 ### 任务 3：物品系统
 
-- [ ] 实现 AbstractItem
-  - [ ] 物品使用逻辑
-  - [ ] 效果计算
-  - [ ] 冷却时间
-- [ ] 实现 AbstractBagAction
-  - [ ] 背包容量管理
-  - [ ] 物品增删改查
-  - [ ] 堆叠逻辑
-- [ ] 实现 AbstractEquipAction
-  - [ ] 装备槽位管理
-  - [ ] 属性计算
-  - [ ] 穿戴和卸下
+- [x] 实现 AbstractItem
+  - [x] 物品使用逻辑
+  - [x] 效果计算
+  - [x] 冷却时间
+- [x] 实现 AbstractBagAction
+  - [x] 背包容量管理
+  - [x] 物品增删改查
+  - [x] 堆叠逻辑
+- [x] 实现 AbstractEquipAction
+  - [x] 装备槽位管理
+  - [x] 属性计算
+  - [x] 穿戴和卸下
 
 ### 任务 4：社交系统
 
-- [ ] 实现 AbstractMailAction
-  - [ ] 邮件发送和接收
-  - [ ] 附件管理
-  - [ ] 邮箱容量
-- [ ] 实现 AbstractRoom
-  - [ ] 房间生命周期
-  - [ ] 玩家管理
-  - [ ] 状态同步
-- [ ] 实现 AbstractGameRoom
-  - [ ] 游戏开始/结束
-  - [ ] 回合管理
-  - [ ] 胜负判定
+- [x] 实现 AbstractMailAction
+  - [x] 邮件发送和接收
+  - [x] 附件管理
+  - [x] 邮箱容量
+- [x] 实现 AbstractRoom
+  - [x] 房间生命周期
+  - [x] 玩家管理
+  - [x] 状态同步
+- [x] 实现 AbstractGameRoom
+  - [x] 游戏开始/结束
+  - [x] 回合管理
+  - [x] 胜负判定
 
 ### 任务 5：放置系统
 
-- [ ] 实现 AbstractIdleAction
-  - [ ] 离线收益计算
-  - [ ] 自动战斗
-  - [ ] 资源产出
+- [x] 实现 AbstractIdleAction
+  - [x] 离线收益计算
+  - [x] 自动战斗
+  - [x] 资源产出
 
 ### 任务 6：文档和示例
 
-- [ ] 编写使用文档
-- [ ] 创建完整示例项目
-- [ ] 编写 API 文档
-- [ ] 编写 `phase5-review.md`
+- [x] 编写使用文档
+- [x] 创建完整示例项目
+- [x] 编写 API 文档
+- [x] 编写 `phase5-review.md`
 
 ---
 
