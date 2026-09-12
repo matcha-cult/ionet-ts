@@ -3,7 +3,7 @@ import type {
   ActionMethodInOut,
   ActionFactoryBean,
 } from '@nbb-ionet/core-framework';
-import type { ExternalServerOptions, WebSocketExternalServerOptions } from '@nbb-ionet/external-server';
+import type { HttpExternalServerOptions, WebSocketExternalServerOptions } from '@nbb-ionet/external-server';
 import type { RedisClientOptions } from '@nbb-ionet/redis';
 import type { NestActionResolver } from './action-factory-bean-for-nest.js';
 
@@ -57,7 +57,11 @@ export interface IonetFeatureOptions {
   actions: Array<new (...args: any[]) => any>;
 }
 
-export interface HttpServerOptions extends ExternalServerOptions {
+/**
+ * HTTP 通道配置。继承传输层 `HttpExternalServerOptions`，因此 `pathPrefix` 可在此配置
+ * 并经 forRoot / forRootAsync 透传（默认 `/api`，见 PROTOCOL.md §9）。
+ */
+export interface HttpServerOptions extends HttpExternalServerOptions {
   /** Whether to enable the HTTP server. Default: true */
   enabled?: boolean;
 }

@@ -73,3 +73,57 @@ describe('HttpExternalServer', () => {
     expect(response.status).toBe(404);
   });
 });
+
+describe('HttpExternalServer pathPrefix（P2-2）', () => {
+  // 复用同一 TestAction 骨架；每个 server 用独立端口，避免与默认前缀用例互扰。
+  const skeleton = new BarSkeletonBuilder().addAction(TestAction).build();
+  const port = 18083;
+  const barePort = 18084;
+  let server: HttpExternalServer;
+  let barePrefixServer: HttpExternalServer;
+
+  beforeAll(async () => {
+    server = new HttpExternalServer({ port, pathPrefix: '/ionet' });
+    await server.start(skeleton);
+    barePrefixServer = new HttpExternalServer({ port: barePort, pathPrefix: 'ionet' });
+    await barePrefixServer.start(skeleton);
+  });
+
+  afterAll(async () => {
+    await server.stop();
+    await barePrefixServer.stop();
+  });
+
+  it('自定义前缀 /ionet 命中', async () => {
+    const response = await fetch(`http://localhost:${port}/ionet/${TEST_CMD.cmd}/${TEST_CMD.echo}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify('Hello'),
+    });
+
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.data).toBe('echo: Hello');
+  });
+
+  it('默认 /api 前缀不再命中（404）', async () => {
+    const response = await fetch(`http://localhost:${port}/api/${TEST_CMD.cmd}/${TEST_CMD.echo}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify('Hello'),
+    });
+    expect(response.status).toBe(404);
+  });
+
+  it('前缀省略前导斜杠等价命中', async () => {
+    const response = await fetch(`http://localhost:${barePort}/ionet/${TEST_CMD.cmd}/${TEST_CMD.echo}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify('Hi'),
+    });
+
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.data).toBe('echo: Hi');
+  });
+});

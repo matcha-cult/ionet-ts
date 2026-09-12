@@ -160,6 +160,7 @@ export class IonetModule implements OnModuleInit, OnModuleDestroy {
         if (enabled === false) {
           return null;
         }
+        // pathPrefix 等 HttpExternalServerOptions 字段随 ...serverOpts 透传（P2-2）
         return new HttpExternalServer(serverOpts);
       },
       inject: [IONET_MODULE_OPTIONS],
@@ -264,6 +265,7 @@ export class IonetModule implements OnModuleInit, OnModuleDestroy {
         if (enabled === false) {
           return null;
         }
+        // pathPrefix 等 HttpExternalServerOptions 字段随 ...serverOpts 透传（P2-2）
         return new HttpExternalServer(serverOpts);
       },
       inject: [IONET_MODULE_OPTIONS],
