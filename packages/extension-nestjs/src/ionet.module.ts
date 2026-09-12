@@ -18,7 +18,8 @@ import type {
   IonetFeatureOptions,
 } from './ionet.interfaces.js';
 
-function assertNotProduction(): void {
+function assertNotProduction(allowProduction: boolean | undefined): void {
+  if (allowProduction === true) return;
   if (process.env.NODE_ENV === 'production') {
     throw new Error(
       '[@nbb-ionet/extension-nestjs] 此模块仅允许在开发/调试模式下使用，禁止在生产环境运行。' +
@@ -71,7 +72,7 @@ export class IonetModule implements OnModuleInit, OnModuleDestroy {
   }
 
   static forRoot(options: IonetModuleOptions): DynamicModule {
-    assertNotProduction();
+    assertNotProduction(options.allowProduction);
 
     const optionsProvider: Provider = {
       provide: IONET_MODULE_OPTIONS,
@@ -165,7 +166,7 @@ export class IonetModule implements OnModuleInit, OnModuleDestroy {
   }
 
   static forRootAsync(options: IonetModuleAsyncOptions): DynamicModule {
-    assertNotProduction();
+    // 异步选项在模块定义期尚不可得，生产守卫延后到 onModuleInit（见下）
 
     const asyncOptionsProvider: Provider = {
       provide: IONET_MODULE_OPTIONS,
@@ -262,6 +263,8 @@ export class IonetModule implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit(): Promise<void> {
+    assertNotProduction(this.moduleOptions.allowProduction);
+
     if (this.redisClient) {
       await this.redisClient.connect();
     }
@@ -326,7 +329,6 @@ export class IonetFeatureModule {
   }
 
   static forFeature(options: IonetFeatureOptions): DynamicModule {
-    assertNotProduction();
 
     const actionsProvider: Provider = {
       provide: IONET_FEATURE_ACTIONS,
