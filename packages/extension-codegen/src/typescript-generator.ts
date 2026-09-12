@@ -45,13 +45,22 @@ export class TypeScriptCodeGenerator implements CodeGenerator {
       }
     }
 
+    // 响应信封与线协议逐字段一致：{ data, errorCode?, errorMessage?, reqId?, kind? }。
+    // 线协议响应**不回显 cmd/subCmd**（ws-server.ts 只回 createResponseMessage 的结果）；
+    // reqId/kind 仅在客户端启用新协议（请求携带 reqId）时出现，故为可选。
+    lines.push('// 响应信封（与线协议一致）：{ data, errorCode?, errorMessage?, reqId?, kind? }');
+    lines.push('// reqId/kind 仅在新协议（请求带 reqId）路径出现；响应不回显 cmd/subCmd。');
+    lines.push('');
+
     for (const action of actions) {
       for (const method of action.methods) {
         const interfaceName = `${action.controllerName}${this.toPascalCase(method.methodName)}Response`;
         lines.push(`export interface ${interfaceName} {`);
-        lines.push(`  cmd: ${action.cmd};`);
-        lines.push(`  subCmd: ${method.subCmd};`);
         lines.push(`  data: ${method.returnType};`);
+        lines.push('  errorCode?: number;');
+        lines.push('  errorMessage?: string;');
+        lines.push('  reqId?: string | number;');
+        lines.push(`  kind?: 'response' | 'notification';`);
         lines.push('}');
         lines.push('');
       }

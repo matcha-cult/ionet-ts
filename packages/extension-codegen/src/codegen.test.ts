@@ -66,6 +66,53 @@ describe('TypeScript Code Generator', () => {
   });
 });
 
+describe('TypeScript Code Generator · Response 与线协议对齐（任务 3）', () => {
+  it('Response 接口不含 cmd/subCmd，含 data 与可选 errorCode/errorMessage/reqId/kind', () => {
+    const code = new TypeScriptCodeGenerator().generate(scanActions([HallAction]));
+    const start = code.indexOf('export interface HallActionLoginVerifyResponse');
+    const block = code.slice(start, code.indexOf('}', start));
+    expect(block).toContain('data:');
+    expect(block).toContain('errorCode?: number;');
+    expect(block).toContain('errorMessage?: string;');
+    expect(block).toContain('reqId?: string | number;');
+    expect(block).toContain("kind?: 'response' | 'notification';");
+    expect(block).not.toContain('cmd:');
+    expect(block).not.toContain('subCmd:');
+  });
+
+  it('Request 接口保持 { cmd, subCmd, data }', () => {
+    const code = new TypeScriptCodeGenerator().generate(scanActions([HallAction]));
+    const start = code.indexOf('export interface HallActionLoginVerifyRequest');
+    const block = code.slice(start, code.indexOf('}', start));
+    expect(block).toContain('cmd: 1;');
+    expect(block).toContain('subCmd: 1;');
+    expect(block).toContain('data:');
+  });
+
+  it('Response 字段集与 ws-server 的响应构造一致', () => {
+    const code = new TypeScriptCodeGenerator().generate(scanActions([HallAction]));
+    for (const field of ['data', 'errorCode', 'errorMessage', 'reqId', 'kind']) {
+      expect(code).toContain(field);
+    }
+    expect(code).toContain('响应不回显 cmd/subCmd');
+  });
+});
+
+describe('C# Code Generator · Response 与线协议对齐（任务 3）', () => {
+  it('Response 类不含 Cmd/SubCmd 属性，含 Data/ErrorCode/ReqId/Kind', () => {
+    const code = new CSharpCodeGenerator().generate(scanActions([HallAction]));
+    const block = code
+      .split('public class ')
+      .find((section) => section.startsWith('HallActionLoginVerifyResponse'))!;
+    expect(block).not.toContain('Cmd { get; set; }');
+    expect(block).not.toContain('SubCmd { get; set; }');
+    expect(block).toContain('Data { get; set; }');
+    expect(block).toContain('ErrorCode');
+    expect(block).toContain('ReqId');
+    expect(block).toContain('Kind');
+  });
+});
+
 describe('C# Code Generator', () => {
   it('应该生成正确的 C# 代码', () => {
     const generator = new CSharpCodeGenerator();
