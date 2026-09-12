@@ -173,6 +173,21 @@ importers:
         specifier: ^5.4.0
         version: 5.9.3
 
+  packages/client-protocol:
+    devDependencies:
+      '@swc/core':
+        specifier: ^1.5.0
+        version: 1.15.43
+      tsup:
+        specifier: ^8.0.0
+        version: 8.5.1(@swc/core@1.15.43)(postcss@8.5.16)(tsx@4.22.4)(typescript@5.9.3)
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.0
+        version: 1.6.1(@types/node@22.20.0)
+
   packages/common-kit:
     dependencies:
       reflect-metadata:
