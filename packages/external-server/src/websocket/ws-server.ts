@@ -21,6 +21,12 @@ interface ClientConnection {
 export class WebSocketExternalServer extends BaseExternalServer {
   private wss: WebSocketServer | null = null;
   private readonly clients = new Map<WebSocket, ClientConnection>();
+  /**
+   * userId -> 连接集合。与 clients 同步维护，仅承载任务 1 的定向推送索引。
+   * 采用「一 userId 多连接」策略：sendTo 向该 userId 的全部 OPEN 连接发送，
+   * 只要至少命中一个 OPEN 连接即返回 true（见 sendTo）。
+   */
+  private readonly userConnections = new Map<bigint, Set<ClientConnection>>();
   private readonly wsOptions: WebSocketExternalServerOptions;
   private readonly path: string;
   private readonly heartbeatInterval: number;
@@ -122,20 +128,21 @@ export class WebSocketExternalServer extends BaseExternalServer {
     });
 
     ws.on('message', async (data) => {
-      await this.handleMessage(ws, data.toString());
+      await this.handleMessage(connection, data.toString());
     });
 
     ws.on('close', () => {
-      this.clients.delete(ws);
+      this.removeConnection(connection);
     });
 
     ws.on('error', (error) => {
       console.error('WebSocket error:', error);
-      this.clients.delete(ws);
+      this.removeConnection(connection);
     });
   }
 
-  private async handleMessage(ws: WebSocket, message: string): Promise<void> {
+  private async handleMessage(connection: ClientConnection, message: string): Promise<void> {
+    const { ws } = connection;
     if (!this.skeleton) return;
 
     let request: { cmd: number; subCmd: number; data?: unknown };
@@ -147,11 +154,18 @@ export class WebSocketExternalServer extends BaseExternalServer {
     }
 
     try {
-      const result = await this.skeleton.execute({
-        cmd: request.cmd,
-        subCmd: request.subCmd,
-        data: request.data,
-      });
+      const result = await this.skeleton.execute(
+        {
+          cmd: request.cmd,
+          subCmd: request.subCmd,
+          data: request.data,
+        },
+        {
+          // 任务 1：Action / inOut 在 execute 期间通过 ctx.bindingUserId(...) 绑定的 userId，
+          // 执行结束时经 onBound 回传，唯一合法赋值点在此登记到连接注册表。
+          onBound: (userId) => this.bindUser(connection, userId),
+        },
+      );
 
       const response = createResponseMessage(result);
       ws.send(this.codec.encode(response));
@@ -160,16 +174,55 @@ export class WebSocketExternalServer extends BaseExternalServer {
     }
   }
 
+  /** userId === 0n 不绑定；重复绑定同一 userId 幂等；改绑先解绑旧项。 */
+  private bindUser(connection: ClientConnection, userId: bigint): void {
+    if (userId === 0n) return;
+    if (connection.userId === userId) return;
+    if (connection.userId !== undefined) {
+      this.detachUser(connection);
+    }
+    connection.userId = userId;
+    let set = this.userConnections.get(userId);
+    if (!set) {
+      set = new Set();
+      this.userConnections.set(userId, set);
+    }
+    set.add(connection);
+  }
+
+  private detachUser(connection: ClientConnection): void {
+    const { userId } = connection;
+    if (userId === undefined) return;
+    const set = this.userConnections.get(userId);
+    if (set) {
+      set.delete(connection);
+      if (set.size === 0) {
+        this.userConnections.delete(userId);
+      }
+    }
+    connection.userId = undefined;
+  }
+
+  /** close / error / 心跳踢除的统一清理入口：注册表与连接表一并移除。 */
+  private removeConnection(connection: ClientConnection): void {
+    this.detachUser(connection);
+    this.clients.delete(connection.ws);
+  }
+
   private startHeartbeat(): void {
     this.heartbeatTimer = setInterval(() => {
-      for (const [ws, connection] of this.clients.entries()) {
+      const stale: ClientConnection[] = [];
+      for (const connection of this.clients.values()) {
         if (!connection.isAlive) {
-          ws.terminate();
-          this.clients.delete(ws);
+          stale.push(connection);
           continue;
         }
         connection.isAlive = false;
-        ws.ping();
+        connection.ws.ping();
+      }
+      for (const connection of stale) {
+        connection.ws.terminate();
+        this.removeConnection(connection);
       }
     }, this.heartbeatInterval);
   }
@@ -183,15 +236,24 @@ export class WebSocketExternalServer extends BaseExternalServer {
     }
   }
 
+  /**
+   * 定向推送。策略（任务 1 锁定）：向该 userId 的**全部** OPEN 连接发送，
+   * 至少命中一个 OPEN 连接即返回 true；userId === 0n 或未绑定/无 OPEN 连接返回 false（不抛错）。
+   */
   sendTo(userId: bigint, message: unknown): boolean {
+    if (userId === 0n) return false;
+    const connections = this.userConnections.get(userId);
+    if (!connections || connections.size === 0) return false;
+
     const encoded = this.codec.encode(message);
-    for (const [, connection] of this.clients.entries()) {
-      if (connection.userId === userId && connection.ws.readyState === WebSocket.OPEN) {
+    let delivered = false;
+    for (const connection of connections) {
+      if (connection.ws.readyState === WebSocket.OPEN) {
         connection.ws.send(encoded);
-        return true;
+        delivered = true;
       }
     }
-    return false;
+    return delivered;
   }
 
   get clientCount(): number {

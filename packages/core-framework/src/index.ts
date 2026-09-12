@@ -54,6 +54,7 @@ export {
   BarSkeletonBuilder,
   type BarSkeletonSetting,
   type BarSkeletonOptions,
+  type BarSkeletonExecuteHooks,
 } from './core/bar-skeleton.js';
 export { BarSkeletonManager } from './core/bar-skeleton-manager.js';
 export {

@@ -15,6 +15,23 @@ export interface BarSkeletonOptions {
   inOuts?: ActionMethodInOut[];
 }
 
+/**
+ * execute 的可选观测钩子。用于在不改变返回信封的前提下，让外部服感知本次执行的
+ * FlowContext 与最终绑定的 userId（连接注册表 / 定向推送接线用）。
+ *
+ * 取舍（任务 1）：在 (a) execute hooks、(b) executeWithContext 返回 { response, userId }、
+ * (c) 外部服注册内部 InOut 三种方案中选 (a)：
+ * - 返回值与既有签名零变化，向后兼容最强；
+ * - 无需外部服接触 InOut 链内部；
+ * - 不影响无钩子的既有调用点（全部 TS 编译期可选）。
+ */
+export interface BarSkeletonExecuteHooks {
+  /** FlowContext 创建并写入 request 后立即调用（inOut/Action 执行之前）。 */
+  onFlowContext?(ctx: FlowContext): void;
+  /** 本次执行结束时 userId !== 0n 才会调用（成功、失败两条路径都会触发）。 */
+  onBound?(userId: bigint): void;
+}
+
 export class BarSkeleton {
   readonly actionCommandRegions: ActionCommandRegions;
   readonly inOutChain: InOutChain;
@@ -48,11 +65,14 @@ export class BarSkeleton {
     });
   }
 
-  async execute(request: {
-    cmd: number;
-    subCmd: number;
-    data?: unknown;
-  }): Promise<{ data?: unknown; errorCode?: number; errorMessage?: string }> {
+  async execute(
+    request: {
+      cmd: number;
+      subCmd: number;
+      data?: unknown;
+    },
+    hooks?: BarSkeletonExecuteHooks,
+  ): Promise<{ data?: unknown; errorCode?: number; errorMessage?: string }> {
     const cmdInfo = CmdInfo.of(request.cmd, request.subCmd);
     const actionCommand = this.actionCommandRegions.getActionCommand(cmdInfo);
 
@@ -66,6 +86,7 @@ export class BarSkeleton {
     const ctx = new FlowContext();
     ctx.setCmdInfo(cmdInfo);
     ctx.setRequest(request);
+    hooks?.onFlowContext?.(ctx);
 
     return runWithFlowContext(ctx, async () => {
       this.inOutChain.fuckInAll(ctx);
@@ -73,6 +94,7 @@ export class BarSkeleton {
         const result = await this.invokeAction(actionCommand, ctx, request.data);
         ctx.setMethodResult(result);
         this.inOutChain.fuckOutAll(ctx);
+        this.notifyBound(ctx, hooks);
         return { data: result };
       } catch (error) {
         const errorMessage =
@@ -80,9 +102,18 @@ export class BarSkeleton {
         ctx.setErrorCode(500);
         ctx.setErrorMessage(errorMessage);
         this.inOutChain.fuckOutAll(ctx);
+        this.notifyBound(ctx, hooks);
         return { errorCode: 500, errorMessage };
       }
     });
+  }
+
+  /** userId === 0n 视为未绑定，不得向外报告（任务 1 硬约束）。 */
+  private notifyBound(ctx: FlowContext, hooks?: BarSkeletonExecuteHooks): void {
+    const userId = ctx.getUserId();
+    if (userId !== 0n) {
+      hooks?.onBound?.(userId);
+    }
   }
 
   private async invokeAction(
