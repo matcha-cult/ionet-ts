@@ -281,3 +281,30 @@ const proto = codec.toProto();
 3. 按 protobuf wire format 读写载荷；`type: 'message'` 时按 `messageType` 递归解析，
    `repeated: true` 为重复字段，缺省 `type` 视为 `string`。
 4. 编码时前缀写 `[1B typeName 长度][typeName UTF-8]` 再拼 protobuf 载荷。
+
+---
+
+## 14. 一致性套件对照表（A1）
+
+> 规格 → 用例的逐条映射。**主套件**：`packages/external-server/src/protocol-conformance.test.ts`
+> （22 个用例，每个用例名以「§N」开头标注所对照的条款号；`it()` 全名即「§N …」整串）。
+> 运行方式：`pnpm --filter @nbb-ionet/external-server run test`；单条按名过滤：
+> `pnpm --filter @nbb-ionet/external-server run test -t "<用例名片段>"`。
+> 表中「既有」指套件之外、任务 1 之前已存在的专项用例（本套件不改动其任一行）。
+
+| 条款 | 测试文件 | 用例 |
+|---|---|---|
+| §1 连接与路径 | `websocket-server.test.ts`（既有） | attach 模式共享 http.Server 请求/响应信封、非 `/ws` 路径 upgrade 400 拒绝、`stop()` 不关闭共享 server、独立模式监听 |
+| §2 编解码 SPI | —（间接覆盖） | 默认 JSON codec 由 §3–§9 全部信封用例间接覆盖；二进制 codec 见 §13 |
+| §3 请求信封 | `protocol-conformance.test.ts` | §3 请求信封 cmd/subCmd/data/headers/traceId 均透传到 FlowContext（inspect 回读）；§3+§4.1 携带 reqId 的全字段信封被接受；reqId 按配对语义在响应中原样回显 |
+| §4 / §4.1 响应信封 | `protocol-conformance.test.ts` | §4+§12.1 旧协议（不带 reqId）：响应逐字节仅含 data/errorCode/errorMessage，不出现 reqId/kind；§4+§8+§12.2 旧协议错误响应（不带 reqId）：同样不注入 reqId/kind，errcode 语义不变；§4 新协议（带 reqId）：回显 reqId 且写入 kind="response"；不回显 cmd/subCmd |
+| §5 推送信封 | `protocol-conformance.test.ts`；`websocket/notification-envelope.test.ts`（既有） | §5 broadcastNotification：产出帧带 kind="notification"，与 kind="response" 可判别；§5 sendNotification：定向推送帧带 kind="notification"；未命中返回 false 不抛错 |
+| §6 握手鉴权 | `protocol-conformance.test.ts`；`websocket/handshake-auth.test.ts`（既有） | §6 无凭据 → upgrade 以 HTTP 401 被拒；§6 Authorization: Bearer <jwt> → 握手成功，FlowContext 预置 userId；§6 URL 查询参数 ?token=<jwt> → 握手成功，FlowContext 预置 userId |
+| §7 心跳 | 暂无独立用例 | 心跳为 30s 周期行为（ws 层 ping/pong），当前套件不做计时断言 |
+| §8 错误语义 | `protocol-conformance.test.ts` | §8 坏帧（非 JSON）→ errorCode=400；§8 未注册 Action → errorCode=404；§8 Action 内部抛错 → errorCode=500；§8+§4 带 reqId 的错误响应同样回显 reqId 与 kind="response"（404 路径） |
+| §9 HTTP fallback | `protocol-conformance.test.ts`；`http-server.test.ts`（既有） | §9 POST /{prefix}/{cmd}/{subCmd} 命中（默认前缀 /api）；§9 裸 DTO 与 {data} 包装等价（标量/数组 DTO）；§9 object DTO 经 {data} 包装完整到达 Action；§9 状态码 = errorCode>=400 ? errorCode : 200（404/400/500 全覆盖）；§9 HTTP 响应不产生 reqId/kind（成功与 404 错误响应逐键断言）；既有：pathPrefix（§9.1）3 用例 |
+| §10 连接注册表/定向推送 | `websocket/send-to.test.ts`、`websocket/connection-registry.test.ts`（既有） | 绑定/解绑/清理/多连接扇出/sendTo 未命中 false 等 9 用例 |
+| §11 Broadcaster | `protocol-conformance.test.ts`；`websocket/connection-registry.test.ts`（既有） | §5+§11 MemoryBroadcaster.encode：Broadcaster 路径产出帧带 kind="notification"；既有：broadcastToUser 端到端信封 / 未绑定静默完成 / 多连接扇出 |
+| §12 兼容性红线 | `protocol-conformance.test.ts` | §12.4 broadcast(unknown)：旧裸透传逐字节不变（不注入 kind）；§12.4 sendTo(unknown)：旧裸透传逐字节不变；§12.1/§12.2 由 §4 两条旧协议用例覆盖 |
+| §13 二进制 schema | `extension-jprotobuf` · `protobuf-codec.test.ts`、`schema.test.ts`（既有） | P2-1 用例（不属于 external-server 套件） |
+
