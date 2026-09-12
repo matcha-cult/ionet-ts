@@ -1,0 +1,213 @@
+# ionet-ts 线协议规格（PROTOCOL）
+
+> 本文件是 ionet-ts 对外线协议的**唯一规格**。源码为准、逐条可核对；
+> 实现位置：`packages/core-framework/src/protocol/`、`packages/external-server/src/websocket/ws-server.ts`、
+> `packages/external-server/src/http/http-server.ts`、`packages/core-framework/src/broadcast/`、
+> `packages/extension-codegen/src/`。
+
+## 0. 概览
+
+ionet-ts 提供两条等价的 Action 传输通道，路由与响应信封同构：
+
+| 通道 | 实现 | 面向 |
+|---|---|---|
+| WebSocket | `WebSocketExternalServer`（基于 `ws`） | 实时双向、服务端主动推送 |
+| HTTP | `HttpExternalServer` | 弱网/代理/不支持 WS 的降级兜底 |
+
+两条通道都只认 `(cmd, subCmd)` 路由与统一信封；客户端语言无关。
+
+---
+
+## 1. 连接与路径（WebSocket）
+
+- 默认路径 `/ws`（`WebSocketExternalServerOptions.path`）。
+- 两种部署形态：
+  - **独立模式**：给出 `port`，自起 listener。日志形如 `WebSocket External Server listening on ws://0.0.0.0:<port>/ws`。
+  - **attach 模式**：给出 `server`（共享既有 `http.Server`，如 NestJS 应用），WS upgrade 挂在同一 listener，可单端口三合一。
+- 帧类型：**文本帧**，UTF-8 JSON（默认 codec）。服务端 `data.toString()` 后解码。
+- 客户端连接地址：`ws(s)://<host>[:port]/ws`（以实际部署为准）。
+
+---
+
+## 2. 编解码 SPI
+
+```ts
+interface ProtocolCodec<T = unknown> {
+  encode(data: T): Uint8Array | string;
+  decode(buffer: Uint8Array | string): T;
+  readonly contentType: string;
+}
+```
+
+- 默认 `JsonProtocolCodec`（`application/json`，文本帧）。
+- 可插拔：`ExternalServerOptions.codec` 注入；`extension-jprotobuf` 提供 `application/x-protobuf` 二进制实现。
+  换 codec 只改传输层编解码，信封字段语义不变。
+
+---
+
+## 3. 请求信封（客户端 → 服务端）
+
+```jsonc
+{
+  "cmd": 30,            // 必须：路由主命令
+  "subCmd": 1,          // 必须：路由子命令
+  "data": { },          // 可选：业务载荷
+  "headers": { },       // 可选：透传给 FlowContext 的头部（如 traceId、灰度标签）
+  "traceId": "...",     // 可选：全链路追踪 id
+  "reqId": "r-1"        // 可选：客户端请求配对 id（string | number），新协议启用
+}
+```
+
+- 类型定义：`core-framework/src/protocol/message.ts` 的 `RequestMessage` / `createRequestMessage`。
+- `headers` 与 `traceId` 会透传到 `FlowContext`，Action 内可经 `ctx.getRequest()?.headers / traceId` 读取。
+- 服务端只依赖 `cmd/subCmd` 路由；`data` 形状由业务 Action 决定。
+
+---
+
+## 4. 响应信封（服务端 → 客户端）
+
+```jsonc
+{
+  "data": { },              // 成功 payload
+  "errorCode": 0,           // 0 / 缺失 = 成功
+  "errorMessage": "...",    // 失败原因
+  "reqId": "r-1",           // 仅当请求携带 reqId 时回显
+  "kind": "response"        // 仅当请求携带 reqId 时写入
+}
+```
+
+- 类型定义：`ResponseMessage` / `createResponseMessage`。
+- **响应不回显 `cmd/subCmd`**（`BarSkeleton.execute` 只返回 `{data}` 或 `{errorCode, errorMessage}`）。
+- `reqId` 与 `kind` 的出现条件是**请求携带 `reqId`**（新协议）。旧客户端（不带 `reqId`）的响应逐字节不变：
+  仅 `{data?, errorCode?, errorMessage?}`，`reqId`/`kind` 键不出现。
+- `kind` 取值域：`'response' | 'notification'`（`ResponseKind`）。
+
+### 4.1 请求关联（reqId）
+
+同一连接上可并发多个未决请求：客户端为每个请求生成 `reqId`，服务端在响应中原样回显。
+不带 `reqId` 的客户端无法关联响应，只能串行请求（兼容旧行为）。
+
+---
+
+## 5. 推送信封（服务端主动 → 客户端）
+
+```jsonc
+{
+  "kind": "notification",   // 必须：判别字段
+  "type": "room.tick",      // 可选：事件名（与 cmd/subCmd 并列）
+  "cmd": 100,               // 可选：按 cmd/subCmd 路由时给出
+  "subCmd": 1,
+  "data": { },              // 推送载荷
+  "timestamp": 1700000000000, // 可选：框架规范化路径会补当前时刻
+  "headers": { },           // 可选
+  "reqId": "r-1",           // 可选：语义上对应某请求时回显
+  "fromUserId": "42"        // 可选：广播来源（Broadcaster 路径保留）
+}
+```
+
+- **唯一构造入口**：`createNotificationMessage()`（`core-framework/src/protocol/message.ts`）。
+  仅显式给出的可选字段才写入；因此 `kind` 之外的字段集可裁剪。
+- 客户端据 `kind` 与响应确定区分：
+  - `kind === 'response'`：某次请求的响应，按 `reqId` 配对。
+  - `kind === 'notification'`：服务端主动推送，按 `cmd/subCmd` 或 `type` 路由。
+- 服务端规范化推送入口（均经 `createNotificationMessage`）：
+  - `WebSocketExternalServer.broadcastNotification(notification, exclude?)`
+  - `WebSocketExternalServer.sendNotification(userId, notification)`
+  - `Broadcaster.*`（`MemoryBroadcaster` 经同一构造入口；见 §11）
+
+> 兼容保留：`WebSocketExternalServer.broadcast(unknown)` / `sendTo(userId, unknown)` 仍对传入对象
+> **原样编码透传**（形状由调用方决定）。它们不是规范化路径，不保证带 `kind`。
+> 新代码应使用 `broadcastNotification` / `sendNotification` / `Broadcaster`。
+
+---
+
+## 6. 握手鉴权
+
+`WebSocketExternalServerOptions.authenticate` 是唯一握手钩子（可选，未配置时行为与旧版一致）：
+
+```ts
+authenticate?(input: {
+  headers: Record<string, string | string[] | undefined>;
+  url: string;                // 含查询串
+  protocol?: string;          // Sec-WebSocket-Protocol 首个值
+}): Promise<{ userId: bigint } | null>;
+```
+
+- 在 WS upgrade 阶段调用。
+- 返回 `null`（或 `userId === 0n`）→ 以 HTTP **401** 拒绝升级。
+- 成功且 `userId !== 0n` → 连接建立时绑定 userId：
+  - 每次 `execute` 的 `FlowContext` 预置该 userId；
+  - 连接登记进连接注册表，可被定向推送（§11）。
+- 凭据约定（由应用侧 `authenticate` 决定，框架只透传 `headers/url`）：
+  - `Authorization: Bearer <token>`（Node 客户端可设置握手头）；
+  - URL 查询参数 `?token=<token>`（浏览器 `WebSocket` 无法设置请求头时的通道）。
+
+---
+
+## 7. 心跳
+
+- 服务端按 `heartbeatInterval`（默认 **30000ms**）对每个连接 `ws.ping()`。
+- 连接收到 `pong` 则标记存活；连续未回 pong 的连接在下一周期被 `terminate()` 并清理注册表。
+- ping/pong 走 WS 协议层，浏览器的 JS 观察不到任何事件；**客户端存活检测应使用应用层心跳**
+  （周期建议 ≤ `heartbeatInterval` 之半，例如复用 system 段 ping Action）。
+
+---
+
+## 8. 错误语义
+
+| errorCode | 含义 | 触发 |
+|---|---|---|
+| `undefined` / `0` | 成功 | 正常返回 |
+| `400` | 消息无法解析 | 服务端解码失败（坏帧） |
+| `404` | Action 未注册 | `(cmd, subCmd)` 无匹配路由 |
+| `500` | 内部异常 | Action 抛错 / 业务错误 |
+
+- 客户端应统一判定 `errorCode !== 0` 为失败。
+- 错误响应同样遵守 §4：仅当请求带 `reqId` 时回显 `reqId` + `kind='response'`。
+
+---
+
+## 9. HTTP fallback 通道
+
+`HttpExternalServer`（`HttpExternalServerOptions.pathPrefix`，默认 `/api`）：
+
+- 路由：`POST /{prefix}/{cmd}/{subCmd}`（如 `POST /api/1/1`）。
+- 请求体：经 codec 解码；**裸 DTO 与 `{ "data": {...} }` 包装两种都接受**。
+- 响应：与 WS 同构的 `{data?, errorCode?, errorMessage?}`；
+  HTTP 状态码 = `errorCode >= 400 ? errorCode : 200`。
+- 失败语义：路径不合法 → 404；body 解析失败 → 400；未就绪 → 503。
+- HTTP 通道当前**不产生** `reqId`/`kind`（响应由 `createResponseMessage(result)` 构造，无请求配对语义）。
+- ⚠️ 部署注意：默认前缀 `/api` 会与 NestJS REST 的 `/api` 冲突，同机部署需分前缀（如 REST `/api`、ionet HTTP `/ionet`）。
+
+---
+
+## 10. 服务端推送与连接注册表
+
+- `WebSocketExternalServer.connectionRegistry` 暴露 core-framework 的 `ConnectionRegistry` 适配器：
+  每个已绑定 userId 注册一个「扇出 Connection」，向其全部 OPEN 连接发送；无连接时自动注销。
+- `IonetModule`（`@nbb-ionet/extension-nestjs`）默认提供并导出 `IONET_BROADCASTER`：
+  数据源即上述注册表；`broadcaster: false` 可关闭。
+- 经 `Broadcaster` / `broadcastNotification` / `sendNotification` 发出的推送一律带 `kind='notification'`。
+- 定向推送语义：`sendTo/sendNotification` 向该 userId 的全部 OPEN 连接发送，至少命中一个返回 `true`；
+  `userId === 0n` 或未绑定/无 OPEN 连接返回 `false`（不抛错）。
+
+---
+
+## 11. Codegen 产物与线协议
+
+`extension-codegen` 产出的 Request / Response 与上述信封逐字段一致：
+
+- Request：`{ cmd, subCmd, data }`
+- Response：`{ data, errorCode?, errorMessage?, reqId?, kind? }`（**不再生成 `cmd/subCmd`**）
+
+`reqId`/`kind` 为可选，仅新协议路径出现。生成物只作 API 层类型参考；
+客户端 SDK 的线协议类型应以本文件为唯一真相。
+
+---
+
+## 12. 兼容性红线
+
+1. 旧客户端（请求不带 `reqId`）的响应字节不变：不出现 `reqId` / `kind`。
+2. 旧客户端（请求不带 `reqId`）的 errcode 语义不变（§8）。
+3. 推送帧新增字段向后兼容：客户端按 `kind` 分流，未知字段忽略。
+4. `broadcast(unknown)` / `sendTo(unknown)` 的裸透传行为保留；未启用 Broadcaster 时零额外行为变化。
