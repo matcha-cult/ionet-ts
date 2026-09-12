@@ -9,6 +9,10 @@ ionet/
 # ionet-ai 知识库（MCP 服务端）同样是外部独立仓库，本地 checkout 使用
 ionet-ai/
 
+# vendor/session-collaboration 是跨工作区临时协作软链（指向 /home/nbb/projects/session-collaboration），
+# 仅本地协作使用，严禁纳入 git 记录。
+vendor/session-collaboration
+
 # ============================================================================
 # Dependencies
 # ============================================================================
