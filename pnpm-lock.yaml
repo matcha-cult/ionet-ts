@@ -49,6 +49,18 @@ importers:
         specifier: ^5.4.0
         version: 5.9.3
 
+  demos/demo-browser-client:
+    devDependencies:
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.43
+      tsx:
+        specifier: ^4.22.0
+        version: 4.22.4
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+
   demos/demo-cluster:
     dependencies:
       '@nbb-ionet/common-kit':

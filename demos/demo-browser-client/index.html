@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ionet 浏览器参考客户端（demo-browser-client）</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: ui-monospace, "SF Mono", Consolas, monospace;
+      max-width: 880px;
+      margin: 24px auto;
+      padding: 0 16px;
+      font-size: 14px;
+    }
+    h1 { font-size: 18px; }
+    .panel {
+      border: 1px solid rgba(128, 128, 128, 0.4);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin: 12px 0;
+    }
+    .panel h2 { font-size: 14px; margin: 0 0 8px; }
+    label { display: inline-block; min-width: 84px; }
+    input[type="text"], input[type="number"], textarea {
+      font-family: inherit;
+      font-size: 13px;
+      padding: 4px 6px;
+      border: 1px solid rgba(128, 128, 128, 0.5);
+      border-radius: 4px;
+      background: transparent;
+      width: 300px;
+    }
+    textarea { width: 100%; min-height: 48px; }
+    button {
+      font-family: inherit;
+      font-size: 13px;
+      padding: 5px 14px;
+      margin: 4px 6px 4px 0;
+      border: 1px solid rgba(128, 128, 128, 0.5);
+      border-radius: 4px;
+      background: rgba(128, 128, 128, 0.12);
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-weight: 600;
+      color: #fff;
+    }
+    .badge-idle         { background: #8a8f98; }
+    .badge-connecting   { background: #b8860b; }
+    .badge-open         { background: #2e8b57; }
+    .badge-reconnecting { background: #b8860b; }
+    .badge-closed       { background: #8a8f98; }
+    .badge-error        { background: #b22222; }
+    .hint {
+      border: 1px solid #b22222;
+      color: #b22222;
+      background: rgba(178, 34, 34, 0.08);
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin: 8px 0;
+      font-size: 13px;
+    }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-all;
+      background: rgba(128, 128, 128, 0.08);
+      border-radius: 6px;
+      padding: 10px;
+      min-height: 48px;
+    }
+    ul { padding-left: 20px; }
+    li { margin: 3px 0; }
+    .muted { opacity: 0.7; font-size: 12px; }
+    #log-view { max-height: 180px; overflow-y: auto; background: rgba(128,128,128,0.06); border-radius: 6px; padding: 8px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>ionet 浏览器参考客户端 · demo-browser-client</h1>
+  <p class="muted">
+    零依赖浏览器参考实现：原生 WebSocket + fetch，按 PROTOCOL.md（信封 / reqId / kind / 握手 / 心跳 / HTTP fallback）与真实服务交互。
+    本页面需要先构建产物：<code>pnpm --filter demo-browser-client run build</code>（dist 由 index.html 以 ES module 方式加载）。
+  </p>
+
+  <div class="panel">
+    <h2>1. 连接与鉴权（PROTOCOL §1 / §6）</h2>
+    <div>
+      <label for="ws-url-input">WS 端点</label>
+      <input id="ws-url-input" type="text" placeholder="ws://localhost:8081/ws" />
+    </div>
+    <div style="margin-top:6px">
+      <label for="token-input">token</label>
+      <input id="token-input" type="text" placeholder="粘贴 JWT（浏览器无法设置握手头，将走 ?token= 查询参数）" />
+    </div>
+    <div id="token-hint" class="hint" hidden>
+      ⚠ 未提供 token：浏览器无法设置 WebSocket 握手请求头，只能走 <code>?token=</code>；
+      服务端会在握手阶段以 <b>HTTP 401</b> 拒绝连接（PROTOCOL §6）。请先填入 token 再连接。
+    </div>
+    <div style="margin-top:6px">
+      状态：<span id="status-badge" class="badge badge-idle">idle</span>
+      <span id="status-detail" class="muted"></span>
+    </div>
+    <div style="margin-top:6px">
+      <button id="btn-connect" type="button">连接</button>
+      <span id="heartbeat-view" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>2. 只读 Action 请求（PROTOCOL §3 / §4.1，按 reqId 配对）</h2>
+    <div>
+      <label for="req-cmd">cmd</label>
+      <input id="req-cmd" type="number" value="30" />
+      <label for="req-subcmd" style="margin-left:12px">subCmd</label>
+      <input id="req-subcmd" type="number" value="1" />
+    </div>
+    <div style="margin-top:6px">
+      <label for="req-payload">data</label>
+      <textarea id="req-payload" placeholder='JSON 载荷，留空则不带 data 字段（如 {}）'></textarea>
+    </div>
+    <div style="margin-top:6px">
+      <button id="btn-send" type="button" disabled>WebSocket 发送</button>
+      <button id="btn-send-http" type="button">HTTP fallback 发送</button>
+      <span class="muted">HTTP fallback 基础地址</span>
+      <input id="http-base-input" type="text" placeholder="http://localhost:8080/api" style="width:220px" />
+    </div>
+    <pre id="response-view">尚未发送请求。</pre>
+  </div>
+
+  <div class="panel">
+    <h2>3. 服务端主动推送（PROTOCOL §5，kind=notification 分流渲染）</h2>
+    <ul id="push-list"><li class="muted">暂无推送帧。</li></ul>
+  </div>
+
+  <div class="panel">
+    <h2>4. 事件日志</h2>
+    <div id="log-view"></div>
+  </div>
+
+  <script type="module" src="./dist/src/main.js"></script>
+</body>
+</html>
