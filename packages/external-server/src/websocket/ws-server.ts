@@ -145,9 +145,14 @@ export class WebSocketExternalServer extends BaseExternalServer {
     const { ws } = connection;
     if (!this.skeleton) return;
 
-    let request: { cmd: number; subCmd: number; data?: unknown };
+    let request: { cmd: number; subCmd: number; data?: unknown; reqId?: string | number };
     try {
-      request = this.codec.decode(message) as { cmd: number; subCmd: number; data?: unknown };
+      request = this.codec.decode(message) as {
+        cmd: number;
+        subCmd: number;
+        data?: unknown;
+        reqId?: string | number;
+      };
     } catch {
       ws.send(this.codec.encode({ errorCode: 400, errorMessage: 'Invalid message format' }));
       return;
@@ -167,7 +172,13 @@ export class WebSocketExternalServer extends BaseExternalServer {
         },
       );
 
-      const response = createResponseMessage(result);
+      // 任务 2：回显 reqId；仅在新协议（请求带 reqId）下写入 kind='response'，
+      // 未带 reqId 的旧客户端响应逐字节不变（reqId/kind 均不出现）。
+      const response = createResponseMessage({
+        ...result,
+        reqId: request.reqId,
+        kind: request.reqId === undefined ? undefined : 'response',
+      });
       ws.send(this.codec.encode(response));
     } catch (error) {
       ws.send(this.codec.encode({ errorCode: 500, errorMessage: 'Internal error' }));

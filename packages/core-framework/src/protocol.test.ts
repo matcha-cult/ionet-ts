@@ -4,6 +4,7 @@ import {
   createRequestMessage,
   requestMessageToCmdInfo,
   createResponseMessage,
+  createNotificationMessage,
   isSuccessResponse,
 } from './protocol/message.js';
 import { attachToFlowContext } from './protocol/flow-attachment.js';
@@ -89,6 +90,57 @@ describe('ResponseMessage', () => {
     expect(msg.errorCode).toBe(500);
     expect(msg.errorMessage).toBe('Internal error');
     expect(isSuccessResponse(msg)).toBe(false);
+  });
+});
+
+describe('RequestMessage reqId（任务 2）', () => {
+  it('createRequestMessage 可携带 string | number reqId', () => {
+    expect(createRequestMessage({ cmd: 1, subCmd: 2, reqId: 'r-1' }).reqId).toBe('r-1');
+    expect(createRequestMessage({ cmd: 1, subCmd: 2, reqId: 7 }).reqId).toBe(7);
+    expect(createRequestMessage({ cmd: 1, subCmd: 2 }).reqId).toBeUndefined();
+  });
+});
+
+describe('ResponseMessage reqId / kind（任务 2）', () => {
+  it('未提供 reqId/kind 时响应逐字节兼容旧格式', () => {
+    const msg = createResponseMessage({ data: 'ok' });
+    expect('reqId' in msg).toBe(false);
+    expect('kind' in msg).toBe(false);
+    expect(JSON.stringify(msg)).toBe('{"data":"ok"}');
+  });
+
+  it('提供 reqId 时回显，kind 可显式给出 response', () => {
+    const msg = createResponseMessage({ data: 'ok', reqId: 'r-9', kind: 'response' });
+    expect(msg.reqId).toBe('r-9');
+    expect(msg.kind).toBe('response');
+    expect(JSON.parse(JSON.stringify(msg))).toEqual({
+      data: 'ok',
+      reqId: 'r-9',
+      kind: 'response',
+    });
+  });
+
+  it('旧调用形式仍编译通过且字段不变', () => {
+    const msg = createResponseMessage({ errorCode: 500, errorMessage: 'x' });
+    expect(msg.errorCode).toBe(500);
+    expect(msg.errorMessage).toBe('x');
+    expect(isSuccessResponse(msg)).toBe(false);
+  });
+
+  it('createNotificationMessage 产出 kind=notification', () => {
+    const msg = createNotificationMessage({ data: { hello: 'world' } });
+    expect(msg.kind).toBe('notification');
+    expect(msg.data).toEqual({ hello: 'world' });
+    expect(JSON.parse(JSON.stringify(msg))).toEqual({
+      data: { hello: 'world' },
+      kind: 'notification',
+    });
+  });
+
+  it('JSON codec 往返不破坏既有解析', () => {
+    const original = createResponseMessage({ data: { n: 1 }, reqId: 3, kind: 'response' });
+    const round = jsonCodec.decode(jsonCodec.encode(original)) as typeof original;
+    expect(round).toEqual(original);
   });
 });
 
