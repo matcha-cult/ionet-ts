@@ -75,6 +75,44 @@ const wsServer = new WebSocketExternalServer({
 
 消息编码后格式为 `[1字节类型名长度][类型名UTF8字节][protobuf消息体]`，解码时据此前缀自动查找已注册类型。
 
+## 机器可读 schema 清单（P2-1 二进制跨端契约）
+
+线格式首段是 typeName，**解码端必须先用相同 typeName 注册类型**才能解码，否则抛
+`Type <name> not registered`。为让非 TS 客户端也能实现可互操作的编解码，本包导出
+与装饰器元数据**同源**的 schema 清单：
+
+```typescript
+import { ProtobufProtocolCodec } from '@nbb-ionet/extension-jprotobuf';
+
+const codec = new ProtobufProtocolCodec();
+codec.registerType(User);
+codec.registerType(Message);
+
+// 对象清单（JSON 可序列化）
+const schema = codec.toSchema();
+// {
+//   formatVersion: 1,
+//   types: [
+//     { name: 'Message', fields: [
+//       { name: 'content', tag: 1, type: 'string' },
+//       { name: 'sender',  tag: 2, type: 'message', messageType: 'User' },
+//       { name: 'tags',    tag: 3, type: 'string', repeated: true },
+//     ] },
+//     { name: 'User', fields: [ /* ... */ ] },
+//   ],
+// }
+
+// 或 proto3 文本
+const proto = codec.toProto();
+```
+
+- 也提供与 codec 无关的纯函数：`buildSchema(constructors)` / `buildProto(constructors)`，
+  适合在启动时对一组类直接导出，无需先注册。
+- 字段说明：`type` 为有效线类型（未声明时默认 `string`）；`type: 'message'` 时
+  `messageType` 指向另一条 `types[].name`；`repeated: true` 表示数组字段。
+- 输出按 typeName、tag 排序，逐字节稳定，可作为跨端契约快照纳入版本控制。
+- 纯增量：不改变既有 `[1B len][typeName][payload]` 线格式与编解码行为。
+
 ## License
 
 AGPL-3.0

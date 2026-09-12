@@ -1,12 +1,14 @@
 import protobuf from 'protobufjs';
 import { type ProtocolCodec } from '@nbb-ionet/core-framework';
 import { getProtobufFields, getProtobufClassName, type ProtobufFieldOptions } from './decorators.js';
+import { buildProto, buildSchema, type ProtobufSchema } from './schema.js';
 
 const root = new protobuf.Root();
 
 export class ProtobufProtocolCodec implements ProtocolCodec {
   readonly contentType = 'application/x-protobuf';
   private typeCache = new Map<string, protobuf.Type>();
+  private readonly typeConstructors = new Map<string, Function>();
 
   encode(data: unknown): Uint8Array {
     if (data === null || data === undefined) {
@@ -62,6 +64,7 @@ export class ProtobufProtocolCodec implements ProtocolCodec {
 
     type = this.buildType(typeName, constructor);
     this.typeCache.set(typeName, type);
+    this.typeConstructors.set(typeName, constructor);
     return type;
   }
 
@@ -87,9 +90,30 @@ export class ProtobufProtocolCodec implements ProtocolCodec {
     return options.type ?? 'string';
   }
 
+  /**
+   * 注册类型。**跨语言客户端解码约定**：线格式首段即 typeName，解码端必须先用
+   * 相同 typeName 注册同一类型，否则 `decode` 抛 `Type <name> not registered`。
+   * 这里的 typeName 即 {@link toSchema} 输出里的 `types[].name`。
+   */
   registerType<T>(constructor: new (...args: any[]) => T): void {
     const typeName = getProtobufClassName(constructor);
     this.getOrCreateType(typeName, constructor);
+  }
+
+  /**
+   * 导出当前编解码器**已注册类型**的机器可读 schema 清单（P2-1 二进制跨端契约）。
+   *
+   * 数据来源是装饰器元数据（`getProtobufFields`），与本类构造 protobuf.Type 时同源；
+   * 未注册类型不会出现。`types[].name` 同时是线格式里的 typeName 与解码注册键。
+   * 输出按 typeName、tag 排序，逐字节稳定，适合做契约快照。
+   */
+  toSchema(): ProtobufSchema {
+    return buildSchema(this.typeConstructors.values());
+  }
+
+  /** 导出已注册类型的 proto3 文本；与 {@link toSchema} 同源，供非 TS 工具链使用。 */
+  toProto(): string {
+    return buildProto(this.typeConstructors.values());
   }
 }
 
