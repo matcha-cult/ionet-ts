@@ -106,6 +106,8 @@ export {
   requestMessageToCmdInfo,
   type ResponseMessage,
   createResponseMessage,
+  type NotificationMessage,
+  type NotificationMessageInput,
   createNotificationMessage,
   isSuccessResponse,
   type FlowAttachment,

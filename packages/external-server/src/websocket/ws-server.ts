@@ -1,6 +1,11 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { type IncomingMessage, type Server } from 'node:http';
-import { type BarSkeleton, createResponseMessage } from '@nbb-ionet/core-framework';
+import {
+  type BarSkeleton,
+  createNotificationMessage,
+  createResponseMessage,
+  type NotificationMessageInput,
+} from '@nbb-ionet/core-framework';
 import { BaseExternalServer, type ExternalServerOptions } from '../external-server.js';
 
 /** 握手鉴权入参：Node 原始请求头（值可能为 string[]）、请求 url、Sec-WebSocket-Protocol。 */
@@ -35,6 +40,12 @@ interface ClientConnection {
   isAlive: boolean;
   userId?: bigint;
 }
+
+/**
+ * 规范化推送入参（P1-3）：业务只提供内容，kind 与可选字段的线格式由框架构造。
+ * 与 NotificationMessageInput 同构，单独命名以便消费方不直接依赖 core-framework。
+ */
+export type NotificationInput = NotificationMessageInput;
 
 /** 报文中可由外部服透传到 FlowContext 的字段。 */
 interface InboundRequest {
@@ -340,6 +351,10 @@ export class WebSocketExternalServer extends BaseExternalServer {
     }, this.heartbeatInterval);
   }
 
+  /**
+   * 旧版群发：对传入对象**原样编码透传**（形状由调用方决定，向后兼容保留）。
+   * 规范化推送请改用 broadcastNotification（框架构造 kind='notification' 信封）。
+   */
   broadcast(message: unknown, exclude?: WebSocket): void {
     const encoded = this.codec.encode(message);
     for (const [ws] of this.clients.entries()) {
@@ -350,7 +365,25 @@ export class WebSocketExternalServer extends BaseExternalServer {
   }
 
   /**
-   * 定向推送。策略（任务 1 锁定）：向该 userId 的**全部** OPEN 连接发送，
+   * P1-3 规范化群发：由框架统一构造推送信封（kind = 'notification'），
+   * 业务只提供内容，不得自造形状。与 broadcast(unknown) 的裸透传并存。
+   * timestamp 未显式给出时由框架补当前时刻。
+   */
+  broadcastNotification(notification: NotificationInput, exclude?: WebSocket): void {
+    const envelope = createNotificationMessage({ timestamp: Date.now(), ...notification });
+    const encoded = this.codec.encode(envelope);
+    for (const [ws] of this.clients.entries()) {
+      if (ws !== exclude && ws.readyState === WebSocket.OPEN) {
+        ws.send(encoded);
+      }
+    }
+  }
+
+  /**
+   * 旧版定向推送：对传入对象**原样编码透传**（向后兼容保留，verify:sendto 依赖）。
+   * 规范化推送请改用 sendNotification。
+   *
+   * 策略（任务 1 锁定）：向该 userId 的**全部** OPEN 连接发送，
    * 至少命中一个 OPEN 连接即返回 true；userId === 0n 或未绑定/无 OPEN 连接返回 false（不抛错）。
    */
   sendTo(userId: bigint, message: unknown): boolean {
@@ -367,6 +400,15 @@ export class WebSocketExternalServer extends BaseExternalServer {
       }
     }
     return delivered;
+  }
+
+  /**
+   * P1-3 规范化定向推送：框架构造 kind='notification' 信封后发送。
+   * 返回语义与 sendTo 一致（至少命中一个 OPEN 连接返回 true，未命中/0n 返回 false 且不抛错）。
+   */
+  sendNotification(userId: bigint, notification: NotificationInput): boolean {
+    const envelope = createNotificationMessage({ timestamp: Date.now(), ...notification });
+    return this.sendTo(userId, envelope);
   }
 
   get clientCount(): number {

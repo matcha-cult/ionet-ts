@@ -72,19 +72,54 @@ export function createResponseMessage(options: {
 }
 
 /**
- * 构造服务端主动通知/广播信封（kind = 'notification'），与请求响应可判别。
- * 既有广播若需被新客户端识别为通知，改用本函数构造。
+ * 服务端主动推送信封（framework-canonical push envelope）。
+ * 由框架统一构造，业务不得自造形状；kind 与响应侧共享取值域 'response' | 'notification'。
+ *
+ * 字段集：{ kind, type?, cmd?, subCmd?, data, timestamp?, headers?, reqId?, fromUserId? }。
+ * 仅显式给出的可选字段才写入；未给出时不出现键，JSON.stringify 下与旧格式逐字节兼容。
  */
-export function createNotificationMessage(options: {
+export interface NotificationMessage {
+  kind: 'notification';
+  /** 事件名（与 cmd/subCmd 编码体系并列；二选一或并存，由订阅路由决定）。 */
+  type?: string;
+  cmd?: number;
+  subCmd?: number;
   data?: unknown;
+  timestamp?: number;
+  headers?: Record<string, string>;
+  /** 若该推送在语义上对应某次请求，可回显 reqId。 */
+  reqId?: string | number;
+  /** 广播来源用户（Broadcaster 路径保留的元信息）。 */
+  fromUserId?: string;
+}
+
+export interface NotificationMessageInput {
+  type?: string;
+  cmd?: number;
+  subCmd?: number;
+  data?: unknown;
+  timestamp?: number;
   headers?: Record<string, string>;
   reqId?: string | number;
-}): ResponseMessage {
+  fromUserId?: string;
+}
+
+/**
+ * 构造服务端主动通知/广播信封（kind = 'notification'），与请求响应可判别。
+ * 这是框架内唯一的推送信封构造入口：ws 传输的规范化推送方法、
+ * MemoryBroadcaster 均须经此构造，禁止业务自造形状。
+ */
+export function createNotificationMessage(options: NotificationMessageInput): NotificationMessage {
   return {
-    data: options.data,
-    headers: options.headers,
-    ...(options.reqId !== undefined ? { reqId: options.reqId } : {}),
     kind: 'notification',
+    ...(options.type !== undefined ? { type: options.type } : {}),
+    ...(options.cmd !== undefined ? { cmd: options.cmd } : {}),
+    ...(options.subCmd !== undefined ? { subCmd: options.subCmd } : {}),
+    data: options.data,
+    ...(options.timestamp !== undefined ? { timestamp: options.timestamp } : {}),
+    ...(options.headers !== undefined ? { headers: options.headers } : {}),
+    ...(options.reqId !== undefined ? { reqId: options.reqId } : {}),
+    ...(options.fromUserId !== undefined ? { fromUserId: options.fromUserId } : {}),
   };
 }
 

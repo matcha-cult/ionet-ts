@@ -7,6 +7,8 @@ export {
   requestMessageToCmdInfo,
   type ResponseMessage,
   createResponseMessage,
+  type NotificationMessage,
+  type NotificationMessageInput,
   createNotificationMessage,
   isSuccessResponse,
 } from './message.js';

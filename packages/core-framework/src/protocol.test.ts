@@ -144,6 +144,46 @@ describe('ResponseMessage reqId / kind（任务 2）', () => {
   });
 });
 
+describe('NotificationMessage 推送信封（P1-3）', () => {
+  it('显式给出的 type/cmd/subCmd/timestamp/fromUserId 全部写入信封', () => {
+    const msg = createNotificationMessage({
+      type: 'room.tick',
+      cmd: 100,
+      subCmd: 1,
+      data: { n: 1 },
+      timestamp: 1700000000000,
+      fromUserId: '42',
+    });
+    expect(JSON.parse(JSON.stringify(msg))).toEqual({
+      kind: 'notification',
+      type: 'room.tick',
+      cmd: 100,
+      subCmd: 1,
+      data: { n: 1 },
+      timestamp: 1700000000000,
+      fromUserId: '42',
+    });
+  });
+
+  it('未给出的可选字段不出现键（向后兼容）', () => {
+    const msg = createNotificationMessage({ data: 'x' });
+    expect('type' in msg).toBe(false);
+    expect('cmd' in msg).toBe(false);
+    expect('subCmd' in msg).toBe(false);
+    expect('timestamp' in msg).toBe(false);
+    expect('fromUserId' in msg).toBe(false);
+    expect(JSON.stringify(msg)).toBe('{"kind":"notification","data":"x"}');
+  });
+
+  it('kind 与响应侧取值域可判别', () => {
+    const notification = createNotificationMessage({ data: 1 });
+    const response = createResponseMessage({ data: 1, kind: 'response' });
+    expect(notification.kind).toBe('notification');
+    expect(response.kind).toBe('response');
+    expect(notification.kind).not.toBe(response.kind);
+  });
+});
+
 describe('FlowAttachment', () => {
   it('set/get attachment', () => {
     const ctx = new FlowContext();
