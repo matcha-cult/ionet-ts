@@ -1,6 +1,11 @@
-import type { BarSkeletonSetting, ActionMethodInOut } from '@nbb-ionet/core-framework';
+import type {
+  BarSkeletonSetting,
+  ActionMethodInOut,
+  ActionFactoryBean,
+} from '@nbb-ionet/core-framework';
 import type { ExternalServerOptions, WebSocketExternalServerOptions } from '@nbb-ionet/external-server';
 import type { RedisClientOptions } from '@nbb-ionet/redis';
+import type { NestActionResolver } from './action-factory-bean-for-nest.js';
 
 export interface IonetModuleOptions {
   /** Action classes decorated with @ActionController */
@@ -20,6 +25,20 @@ export interface IonetModuleOptions {
    * 默认行为仍是「生产禁用」；仅在明确知晓部署形态（自管 Node 进程 + 自有发布流程）时才置 true。
    */
   allowProduction?: boolean;
+  /**
+   * 自定义 Action 实例工厂（任务 4，高级用法）：从 DI 容器解析实例。
+   * 配置后框架不会直接 new ActionClass()，而是在 onModuleInit 阶段（app 就绪后）
+   * 经该工厂解析并注册，使 Action 拿到容器依赖。
+   */
+  actionFactory?: ActionFactoryBean;
+  /**
+   * actionFactory 的简化形式：仅提供 (ActionClass) => instance 的解析函数。
+   * 例：forRoot({ actions, resolveAction: (Cls) => app.get(Cls) })。
+   *
+   * 注意：不要在框架侧注入 @nestjs/core 类令牌（ModuleRef 等）——跨仓库 workspace
+   * 链接下可能解析到不同副本而静默为 undefined。用本函数由应用侧显式解析即可绕开。
+   */
+  resolveAction?: NestActionResolver;
 }
 
 export interface IonetModuleAsyncOptions {

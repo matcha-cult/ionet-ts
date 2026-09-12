@@ -4,6 +4,7 @@ import { ActionCommandRegions } from './action-command-region.js';
 import { DefaultActionCommandParser } from './action-command-parser.js';
 import { FlowContext, runWithFlowContext, type Request } from './flow/flow-context.js';
 import { InOutChain, type ActionMethodInOut } from './flow/action-method-inout.js';
+import { type ActionFactoryBean } from './action-factory-bean.js';
 
 export interface BarSkeletonSetting {
   printSlow?: boolean;
@@ -37,6 +38,11 @@ export class BarSkeleton {
   readonly inOutChain: InOutChain;
   private readonly setting: BarSkeletonSetting;
   private readonly actionCommandParser = new DefaultActionCommandParser();
+  /**
+   * 可选的 Action 实例工厂（任务 4）。用于让 Action 走外部 DI 容器（如 NestJS），
+   * 未设置时 addAction 直接 new ActionClass()（行为不变）。
+   */
+  private actionFactory: ActionFactoryBean | null = null;
 
   constructor(
     actionCommandRegions: ActionCommandRegions,
@@ -55,11 +61,27 @@ export class BarSkeleton {
   }
 
   /**
+   * 设置 Action 实例工厂。设为 null 可清除。未设置时回退 new（行为不变）。
+   */
+  setActionFactory(factory: ActionFactoryBean | null): void {
+    this.actionFactory = factory;
+  }
+
+  /** 是否配置了 Action 实例工厂（供上层决定是否把实例解析延迟到容器就绪后）。 */
+  hasActionFactory(): boolean {
+    return this.actionFactory !== null;
+  }
+
+  /**
    * 注册单个 Action 类到路由表。可在构建后追加注册（如 NestJS feature 模块场景）。
-   * 未传 instance 时直接 new ActionClass() 实例化（不经过外部 DI 容器）。
+   * 实例优先级：显式 instance > actionFactory.getBean() > new ActionClass()。
+   * 工厂返回 undefined 时回退 new，保证「未提供工厂时行为不变」。
    */
   addAction(ActionClass: Function, instance?: object): void {
-    const controllerInstance = instance ?? new (ActionClass as new () => object)();
+    const controllerInstance =
+      instance ??
+      this.actionFactory?.getBean(ActionClass as new (...args: any[]) => object) ??
+      new (ActionClass as new () => object)();
     this.actionCommandParser.parse(ActionClass, controllerInstance, {
       actionCommandRegions: this.actionCommandRegions,
     });
@@ -144,9 +166,16 @@ export class BarSkeletonBuilder {
   }> = [];
   private readonly inOuts: ActionMethodInOut[] = [];
   private setting: BarSkeletonSetting = {};
+  private actionFactory: ActionFactoryBean | null = null;
 
   addAction(ActionClass: Function, instance?: object): this {
     this.actionClasses.push({ ActionClass, instance });
+    return this;
+  }
+
+  /** 设置 Action 实例工厂（任务 4）。构建时传递给 BarSkeleton；未设置回退 new。 */
+  setActionFactory(factory: ActionFactoryBean): this {
+    this.actionFactory = factory;
     return this;
   }
 
@@ -162,6 +191,10 @@ export class BarSkeletonBuilder {
 
   build(): BarSkeleton {
     const skeleton = new BarSkeleton(new ActionCommandRegions(), this.setting, this.inOuts);
+
+    if (this.actionFactory) {
+      skeleton.setActionFactory(this.actionFactory);
+    }
 
     for (const { ActionClass, instance } of this.actionClasses) {
       skeleton.addAction(ActionClass, instance);

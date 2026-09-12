@@ -1,7 +1,12 @@
 import { Module, DynamicModule, Provider, OnModuleInit, OnModuleDestroy, Inject, Global, Optional } from '@nestjs/common';
 import { type Server } from 'node:http';
-import { BarSkeleton, BarSkeletonBuilder } from '@nbb-ionet/core-framework';
+import {
+  BarSkeleton,
+  BarSkeletonBuilder,
+  type ActionFactoryBean,
+} from '@nbb-ionet/core-framework';
 import { HttpExternalServer, WebSocketExternalServer } from '@nbb-ionet/external-server';
+import { ActionFactoryBeanForNest } from './action-factory-bean-for-nest.js';
 import { RedisClient } from '@nbb-ionet/redis';
 import {
   IONET_MODULE_OPTIONS,
@@ -17,6 +22,16 @@ import type {
   IonetModuleAsyncOptions,
   IonetFeatureOptions,
 } from './ionet.interfaces.js';
+
+/**
+ * 由 options 构造 Action 实例工厂（任务 4）。两者都未配置时返回 undefined，
+ * 骨架按既有行为直接 new ActionClass()。
+ */
+function resolveActionFactory(options: IonetModuleOptions): ActionFactoryBean | undefined {
+  if (options.actionFactory) return options.actionFactory;
+  if (options.resolveAction) return new ActionFactoryBeanForNest(options.resolveAction);
+  return undefined;
+}
 
 function assertNotProduction(allowProduction: boolean | undefined): void {
   if (allowProduction === true) return;
@@ -88,8 +103,14 @@ export class IonetModule implements OnModuleInit, OnModuleDestroy {
       provide: IONET_BAR_SKELETON,
       useFactory: (actionClasses: Function[]) => {
         const builder = new BarSkeletonBuilder();
-        for (const ActionClass of actionClasses) {
-          builder.addAction(ActionClass);
+        const actionFactory = resolveActionFactory(options);
+        if (actionFactory) {
+          // 配置了工厂：实例解析延迟到 onModuleInit（app 就绪后），此处只挂工厂。
+          builder.setActionFactory(actionFactory);
+        } else {
+          for (const ActionClass of actionClasses) {
+            builder.addAction(ActionClass);
+          }
         }
         if (options.inOuts) {
           for (const inOut of options.inOuts) {
@@ -184,8 +205,14 @@ export class IonetModule implements OnModuleInit, OnModuleDestroy {
       provide: IONET_BAR_SKELETON,
       useFactory: (opts: IonetModuleOptions, actionClasses: Function[]) => {
         const builder = new BarSkeletonBuilder();
-        for (const ActionClass of actionClasses) {
-          builder.addAction(ActionClass);
+        const actionFactory = resolveActionFactory(opts);
+        if (actionFactory) {
+          // 配置了工厂：实例解析延迟到 onModuleInit（app 就绪后），此处只挂工厂。
+          builder.setActionFactory(actionFactory);
+        } else {
+          for (const ActionClass of actionClasses) {
+            builder.addAction(ActionClass);
+          }
         }
         if (opts.inOuts) {
           for (const inOut of opts.inOuts) {
@@ -265,6 +292,10 @@ export class IonetModule implements OnModuleInit, OnModuleDestroy {
   async onModuleInit(): Promise<void> {
     assertNotProduction(this.moduleOptions.allowProduction);
 
+    // 任务 4：配置了 actionFactory/resolveAction 时，Action 实例解析延迟到此处
+    // （app 已创建、所有 provider 就绪），再注册进骨架。
+    this.registerDeferredActions();
+
     if (this.redisClient) {
       await this.redisClient.connect();
     }
@@ -292,6 +323,13 @@ export class IonetModule implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  private registerDeferredActions(): void {
+    if (!this.skeleton || !this.skeleton.hasActionFactory()) return;
+    for (const ActionClass of this.moduleOptions.actions ?? []) {
+      this.skeleton.addAction(ActionClass);
+    }
+  }
+
   async onModuleDestroy(): Promise<void> {
     if (this.httpServer) {
       await this.httpServer.stop();
@@ -308,10 +346,16 @@ export class IonetModule implements OnModuleInit, OnModuleDestroy {
 }
 
 @Module({})
-export class IonetFeatureModule {
+export class IonetFeatureModule implements OnModuleInit {
+  private readonly skeleton: BarSkeleton | null;
+  private readonly actions: Array<new (...args: any[]) => any>;
+
   /**
    * 模块实例化（容器初始化阶段，早于所有 onModuleInit）时，
    * 将 forFeature 声明的 actions 注册进 forRoot 构建的共享 BarSkeleton 路由表。
+   *
+   * 未配置 Action 工厂时在此同步注册（既有行为）；配置了工厂时延迟到 onModuleInit，
+   * 以便在容器就绪后从 DI 解析实例（任务 4）。
    */
   constructor(
     @Optional() @Inject(IONET_BAR_SKELETON) skeleton: BarSkeleton | null,
@@ -323,8 +367,21 @@ export class IonetFeatureModule {
         '未找到 BarSkeleton（IONET_BAR_SKELETON），无法注册 feature actions。',
       );
     }
-    for (const ActionClass of actions) {
-      skeleton.addAction(ActionClass);
+    this.skeleton = skeleton;
+    this.actions = actions;
+    if (!skeleton.hasActionFactory()) {
+      for (const ActionClass of actions) {
+        skeleton.addAction(ActionClass);
+      }
+    }
+  }
+
+  /** 配置了 Action 工厂：容器就绪后解析实例并注册（与 forRoot 的延迟注册一致）。 */
+  onModuleInit(): void {
+    if (this.skeleton?.hasActionFactory()) {
+      for (const ActionClass of this.actions) {
+        this.skeleton.addAction(ActionClass);
+      }
     }
   }
 
