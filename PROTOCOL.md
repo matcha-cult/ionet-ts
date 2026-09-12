@@ -42,6 +42,7 @@ interface ProtocolCodec<T = unknown> {
 - 默认 `JsonProtocolCodec`（`application/json`，文本帧）。
 - 可插拔：`ExternalServerOptions.codec` 注入；`extension-jprotobuf` 提供 `application/x-protobuf` 二进制实现。
   换 codec 只改传输层编解码，信封字段语义不变。
+- 二进制实现的跨端机器可读 schema 清单见 §13（P2-1）。
 
 ---
 
@@ -179,6 +180,24 @@ authenticate?(input: {
 - HTTP 通道当前**不产生** `reqId`/`kind`（响应由 `createResponseMessage(result)` 构造，无请求配对语义）。
 - ⚠️ 部署注意：默认前缀 `/api` 会与 NestJS REST 的 `/api` 冲突，同机部署需分前缀（如 REST `/api`、ionet HTTP `/ionet`）。
 
+### 9.1 配置独立前缀（NestJS）
+
+`IonetModule` 的 `httpServer` 直接继承传输层 `HttpExternalServerOptions`，`pathPrefix` 经
+`forRoot` 与 `forRootAsync` 两条链路透传（P2-2）。最小示例：
+
+```typescript
+IonetModule.forRoot({
+  actions: [HallAction],
+  httpServer: { enabled: true, port: 9090, pathPrefix: '/ionet' }, // 路由 POST /ionet/{cmd}/{subCmd}
+  wsServer: false,
+  redis: false,
+});
+```
+
+- 省略 `pathPrefix` 时仍为 `/api`（既有行为不变）。
+- 前缀可带或不带前导 `/`（`'/ionet'` 与 `'ionet'` 等价）。
+- 与 WS 通道路由/信封同构；HTTP 仍不产生 `reqId`/`kind`（见本节首条）。
+
 ---
 
 ## 10. 服务端推送与连接注册表
@@ -211,3 +230,54 @@ authenticate?(input: {
 2. 旧客户端（请求不带 `reqId`）的 errcode 语义不变（§8）。
 3. 推送帧新增字段向后兼容：客户端按 `kind` 分流，未知字段忽略。
 4. `broadcast(unknown)` / `sendTo(unknown)` 的裸透传行为保留；未启用 Broadcaster 时零额外行为变化。
+
+---
+
+## 13. 二进制编解码与机器可读 schema（P2-1）
+
+`extension-jprotobuf` 的线格式是私有自描述的 `[1B typeName 长度][typeName][protobuf 载荷]`；
+schema 的唯一真相是 `@ProtobufClass` / `@ProtobufField` 装饰器元数据。为让**非 TS 客户端**
+也能实现可互操作的编解码，框架导出与装饰器元数据**同源**的机器可读 schema 清单。
+
+### 13.1 取清单
+
+```typescript
+import { ProtobufProtocolCodec } from '@nbb-ionet/extension-jprotobuf';
+
+const codec = new ProtobufProtocolCodec();
+codec.registerType(User);
+codec.registerType(Message);
+
+// 对象清单（JSON 可序列化）
+const schema = codec.toSchema();
+// {
+//   formatVersion: 1,
+//   types: [
+//     { name: 'Message', fields: [
+//       { name: 'content', tag: 1, type: 'string' },
+//       { name: 'sender',  tag: 2, type: 'message', messageType: 'User' },
+//       { name: 'tags',    tag: 3, type: 'string', repeated: true },
+//     ] },
+//     { name: 'User', fields: [ /* ... */ ] },
+//   ],
+// }
+
+// 或 proto3 文本（直接喂给 protoc / 其他语言工具链）
+const proto = codec.toProto();
+```
+
+- 也可不持有 codec：纯函数 `buildSchema(constructors)` / `buildProto(constructors)`，
+  传入一组带装饰器的类即可。
+- `types[].name` 即线格式里的 typeName，也是解码注册键；`fields[]` 给出
+  `{ name, tag, type, repeated?, messageType? }`。
+- 输出按 typeName、tag 排序，逐字节稳定，可作为跨端契约快照纳入版本控制。
+- 纯增量：不改变既有线格式与编解码行为。
+
+### 13.2 非 TS 客户端如何用
+
+1. 启动时取 `schema`（或 `proto`），据 `types[].name` 建立「typeName → 字段 tag/类型」注册表。
+2. 解码前**必须先按相同 typeName 注册类型**；未注册时抛 `Type <name> not registered`
+   （线格式不自带字段定义，只带 typeName）。
+3. 按 protobuf wire format 读写载荷；`type: 'message'` 时按 `messageType` 递归解析，
+   `repeated: true` 为重复字段，缺省 `type` 视为 `string`。
+4. 编码时前缀写 `[1B typeName 长度][typeName UTF-8]` 再拼 protobuf 载荷。
