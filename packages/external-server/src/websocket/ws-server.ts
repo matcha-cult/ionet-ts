@@ -2,6 +2,9 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { type IncomingMessage, type Server } from 'node:http';
 import {
   type BarSkeleton,
+  type Connection,
+  type ConnectionRegistry,
+  MemoryConnectionRegistry,
   createNotificationMessage,
   createResponseMessage,
   type NotificationMessageInput,
@@ -71,6 +74,12 @@ export class WebSocketExternalServer extends BaseExternalServer {
    * 只要至少命中一个 OPEN 连接即返回 true（见 sendTo）。
    */
   private readonly userConnections = new Map<bigint, Set<ClientConnection>>();
+  /**
+   * 任务 1（P0-5）连接注册表适配器：把 userId 的 ws 连接映射为 core-framework 的
+   * ConnectionRegistry，供 MemoryBroadcaster / Broadcaster 复用。
+   * 每个 userId 注册一个「扇出 Connection」：向其全部 OPEN 连接发送；该 userId 无连接时注销。
+   */
+  private readonly registry = new MemoryConnectionRegistry();
   /**
    * 握手鉴权通过后暂存 userId，待 'connection' 事件（拿到 ws）时绑定到连接。
    * WeakMap 以 req 为键，连接建立后即删除，避免长期持有请求对象。
@@ -298,6 +307,16 @@ export class WebSocketExternalServer extends BaseExternalServer {
     }
   }
 
+  /**
+   * 任务 1（P0-5）：连接注册表适配器。把 ws 连接映射为 core-framework 的
+   * ConnectionRegistry，供 MemoryBroadcaster / Broadcaster 复用。
+   * 每个 userId 注册一个「扇出 Connection」（见 createFanoutConnection），
+   * 向其全部 OPEN 连接发送；userId 无连接时自动注销，未绑定时查询为空。
+   */
+  get connectionRegistry(): ConnectionRegistry {
+    return this.registry;
+  }
+
   /** userId === 0n 不绑定；重复绑定同一 userId 幂等；改绑先解绑旧项。 */
   private bindUser(connection: ClientConnection, userId: bigint): void {
     if (userId === 0n) return;
@@ -310,6 +329,8 @@ export class WebSocketExternalServer extends BaseExternalServer {
     if (!set) {
       set = new Set();
       this.userConnections.set(userId, set);
+      // 该 userId 首次出现：登记扇出 Connection（后续同 userId 连接复用同一注册项）
+      this.registry.register(String(userId), this.createFanoutConnection(userId));
     }
     set.add(connection);
   }
@@ -322,9 +343,64 @@ export class WebSocketExternalServer extends BaseExternalServer {
       set.delete(connection);
       if (set.size === 0) {
         this.userConnections.delete(userId);
+        this.registry.unregister(String(userId));
       }
     }
     connection.userId = undefined;
+  }
+
+  /** 构造某 userId 的扇出 Connection：id/ready/send/close 均以其全部 ws 连接为准。 */
+  private createFanoutConnection(userId: bigint): Connection {
+    const self = this;
+    return {
+      id: String(userId),
+      get ready(): boolean {
+        return self.hasOpenConnection(userId);
+      },
+      send(data: string): void {
+        self.sendRawToUser(userId, data);
+      },
+      close(): void {
+        self.closeUserConnections(userId);
+      },
+    };
+  }
+
+  /** 该 userId 是否存在至少一个 OPEN 连接。 */
+  private hasOpenConnection(userId: bigint): boolean {
+    const set = this.userConnections.get(userId);
+    if (!set) return false;
+    for (const connection of set) {
+      if (connection.ws.readyState === WebSocket.OPEN) return true;
+    }
+    return false;
+  }
+
+  /**
+   * 向 userId 的全部 OPEN 连接发送**已编码**的原始帧（供 Connection.send 使用）。
+   * 与 sendTo 的差异：不再经 codec.encode，适用于 Broadcaster 已产出线格式字符串的场景。
+   */
+  private sendRawToUser(userId: bigint, raw: string): boolean {
+    const set = this.userConnections.get(userId);
+    if (!set) return false;
+    let delivered = false;
+    for (const connection of set) {
+      if (connection.ws.readyState === WebSocket.OPEN) {
+        connection.ws.send(raw);
+        delivered = true;
+      }
+    }
+    return delivered;
+  }
+
+  private closeUserConnections(userId: bigint): void {
+    const set = this.userConnections.get(userId);
+    if (!set) return;
+    // 复制一份：removeConnection -> detachUser 会修改原集合
+    for (const connection of [...set]) {
+      connection.ws.terminate();
+      this.removeConnection(connection);
+    }
   }
 
   /** close / error / 心跳踢除的统一清理入口：注册表与连接表一并移除。 */

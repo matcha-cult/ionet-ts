@@ -3,6 +3,7 @@ import { type Server } from 'node:http';
 import {
   BarSkeleton,
   BarSkeletonBuilder,
+  createMemoryBroadcaster,
   type ActionFactoryBean,
 } from '@nbb-ionet/core-framework';
 import { HttpExternalServer, WebSocketExternalServer } from '@nbb-ionet/external-server';
@@ -16,6 +17,7 @@ import {
   IONET_REDIS_CLIENT,
   IONET_ACTIONS,
   IONET_FEATURE_ACTIONS,
+  IONET_BROADCASTER,
 } from './ionet.constants.js';
 import type {
   IonetModuleOptions,
@@ -31,6 +33,29 @@ function resolveActionFactory(options: IonetModuleOptions): ActionFactoryBean | 
   if (options.actionFactory) return options.actionFactory;
   if (options.resolveAction) return new ActionFactoryBeanForNest(options.resolveAction);
   return undefined;
+}
+
+/**
+ * 构造 Broadcaster provider（任务 1 / P0-5）。
+ *
+ * 数据源：WebSocketExternalServer 的连接注册表适配器（connectionRegistry），
+ * 使 MemoryBroadcaster 真正能看到在线连接；wsServer 未启用时退化为空注册表
+ * （推送为安全 no-op，返回不抛错）。
+ *
+ * 默认提供；options.broadcaster === false 时返回 null。
+ */
+function createBroadcasterProvider(): Provider {
+  return {
+    provide: IONET_BROADCASTER,
+    useFactory: (wsServer: WebSocketExternalServer | null, opts: IonetModuleOptions) => {
+      if (opts.broadcaster === false) {
+        return null;
+      }
+      const connections = wsServer?.connectionRegistry;
+      return createMemoryBroadcaster(connections ? { connections } : {}).broadcaster;
+    },
+    inject: [IONET_WS_SERVER, IONET_MODULE_OPTIONS],
+  };
 }
 
 function assertNotProduction(allowProduction: boolean | undefined): void {
@@ -176,12 +201,14 @@ export class IonetModule implements OnModuleInit, OnModuleDestroy {
         httpServerProvider,
         wsServerProvider,
         redisProvider,
+        createBroadcasterProvider(),
       ],
       exports: [
         IONET_BAR_SKELETON,
         IONET_HTTP_SERVER,
         IONET_WS_SERVER,
         IONET_REDIS_CLIENT,
+        IONET_BROADCASTER,
       ],
     };
   }
@@ -279,12 +306,14 @@ export class IonetModule implements OnModuleInit, OnModuleDestroy {
         httpServerProvider,
         wsServerProvider,
         redisProvider,
+        createBroadcasterProvider(),
       ],
       exports: [
         IONET_BAR_SKELETON,
         IONET_HTTP_SERVER,
         IONET_WS_SERVER,
         IONET_REDIS_CLIENT,
+        IONET_BROADCASTER,
       ],
     };
   }

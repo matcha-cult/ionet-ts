@@ -21,6 +21,11 @@ export interface IonetModuleOptions {
   /** Redis options. Set to false to disable. */
   redis?: RedisClientOptions | false;
   /**
+   * 是否提供 Broadcaster provider（默认 true）。
+   * 置 false 时不创建 IONET_BROADCASTER；未使用推送的部署可据此保持零新增开销。
+   */
+  broadcaster?: false;
+  /**
    * 是否允许在 NODE_ENV=production 下运行本模块（默认 false）。
    * 默认行为仍是「生产禁用」；仅在明确知晓部署形态（自管 Node 进程 + 自有发布流程）时才置 true。
    */

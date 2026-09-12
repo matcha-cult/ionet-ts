@@ -1,8 +1,12 @@
 export interface BroadcastMessage {
+  /** 事件名（与 cmd/subCmd 编码体系并列）。广播信封会原样带上。 */
   type: string;
   data: unknown;
   timestamp: number;
   fromUserId?: string;
+  /** 可选：与响应同构的路由 cmd。给出时写入推送信封，便于客户端按 cmd/subCmd 路由。 */
+  cmd?: number;
+  subCmd?: number;
 }
 
 export interface Connection {

@@ -10,7 +10,15 @@ export {
   IONET_WS_SERVER,
   IONET_REDIS_CLIENT,
   IONET_ACTIONS,
+  IONET_BROADCASTER,
 } from './ionet.constants.js';
+export type {
+  Broadcaster,
+  BroadcastMessage,
+  Connection,
+  ConnectionRegistry,
+  RoomRegistry,
+} from '@nbb-ionet/core-framework';
 export type {
   IonetModuleOptions,
   IonetModuleAsyncOptions,

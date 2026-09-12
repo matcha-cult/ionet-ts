@@ -134,8 +134,9 @@ import {
   IONET_HTTP_SERVER,
   IONET_WS_SERVER,
   IONET_REDIS_CLIENT,
+  IONET_BROADCASTER,
 } from '@nbb-ionet/extension-nestjs';
-import type { BarSkeleton } from '@nbb-ionet/core-framework';
+import type { BarSkeleton, Broadcaster } from '@nbb-ionet/core-framework';
 import type { HttpExternalServer, WebSocketExternalServer } from '@nbb-ionet/external-server';
 import type { RedisClient } from '@nbb-ionet/redis';
 
@@ -145,8 +146,49 @@ class MyService {
     @Inject(IONET_BAR_SKELETON) private skeleton: BarSkeleton,
     @Inject(IONET_WS_SERVER) private wsServer: WebSocketExternalServer,
     @Inject(IONET_REDIS_CLIENT) private redis: RedisClient,
+    @Inject(IONET_BROADCASTER) private broadcaster: Broadcaster,
   ) {}
 }
+```
+
+## 服务端主动推送（Broadcaster）
+
+`IonetModule` 默认提供并导出 `IONET_BROADCASTER`。其数据源是 `WebSocketExternalServer.connectionRegistry`
+（把 ws 连接映射为 core-framework 的 `ConnectionRegistry` 适配器），因此**绑定过 userId 的连接可被定向推送**：
+
+```typescript
+import { Inject, Injectable } from '@nestjs/common';
+import { IONET_BROADCASTER } from '@nbb-ionet/extension-nestjs';
+import type { Broadcaster } from '@nbb-ionet/core-framework';
+
+@Injectable()
+class NotifyService {
+  constructor(@Inject(IONET_BROADCASTER) private readonly broadcaster: Broadcaster) {}
+
+  async tellUser(userId: string): Promise<void> {
+    // 经框架构造信封：客户端收到 { kind: 'notification', type, data, timestamp }
+    await this.broadcaster.broadcastToUser(userId, {
+      type: 'private',
+      data: { hello: 'you' },
+      timestamp: Date.now(),
+    });
+  }
+}
+```
+
+推送信封由框架统一构造（`kind = 'notification'`），业务不得自造形状，详见仓库根 `PROTOCOL.md`。
+
+> 未启用 WS（`wsServer: false`）时 Broadcaster 退化为空注册表：推送为安全 no-op，未命中不抛错。
+> 不需要推送的部署可设 `broadcaster: false` 关闭该 provider。
+
+Action 若需拿到容器服务（含 `Broadcaster`），配置 `resolveAction`（或 `actionFactory`）：
+
+```typescript
+IonetModule.forRoot({
+  actions: [RoomAction],
+  resolveAction: (ActionClass) => app.get(ActionClass),
+  wsServer: { attachNestServer: true },
+})
 ```
 
 ## 配置选项
@@ -161,6 +203,9 @@ class MyService {
 | `httpServer` | `HttpServerOptions \| false` | HTTP 服务器配置，`false` 禁用 |
 | `wsServer` | `WsServerOptions \| false` | WebSocket 服务器配置，`false` 禁用 |
 | `redis` | `RedisClientOptions \| false` | Redis 配置，`false` 禁用 |
+| `broadcaster` | `false` | 置 `false` 时不提供 `IONET_BROADCASTER`（默认提供） |
+| `resolveAction` | `(ActionClass) => object \| undefined` | 由应用侧从容器解析 Action 实例（启用后 Action 可注入容器服务） |
+| `actionFactory` | `ActionFactoryBean` | `resolveAction` 的完整形式 |
 
 ## License
 
