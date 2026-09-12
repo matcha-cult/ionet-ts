@@ -7,6 +7,8 @@ export interface Request {
   subCmd: number;
   data?: unknown;
   headers?: Record<string, string>;
+  /** 分布式链路追踪 id；由外部服从报文透传，与 reqId（请求配对）语义不混用。 */
+  traceId?: string;
 }
 
 export interface Response {

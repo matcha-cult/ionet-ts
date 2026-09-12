@@ -2,7 +2,7 @@ import { CmdInfo } from './cmd-info.js';
 import { type ActionCommand } from './action-command.js';
 import { ActionCommandRegions } from './action-command-region.js';
 import { DefaultActionCommandParser } from './action-command-parser.js';
-import { FlowContext, runWithFlowContext } from './flow/flow-context.js';
+import { FlowContext, runWithFlowContext, type Request } from './flow/flow-context.js';
 import { InOutChain, type ActionMethodInOut } from './flow/action-method-inout.js';
 
 export interface BarSkeletonSetting {
@@ -66,11 +66,7 @@ export class BarSkeleton {
   }
 
   async execute(
-    request: {
-      cmd: number;
-      subCmd: number;
-      data?: unknown;
-    },
+    request: Request,
     hooks?: BarSkeletonExecuteHooks,
   ): Promise<{ data?: unknown; errorCode?: number; errorMessage?: string }> {
     const cmdInfo = CmdInfo.of(request.cmd, request.subCmd);
