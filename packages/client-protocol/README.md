@@ -85,4 +85,14 @@ pnpm -w run build                                    # 全仓构建（tsup 拓�
 
 ## 与 A1 同源（任务 3）
 
-见 `./testing` 子路径与「协议一致性金样」一节（A3 任务 3 落位）。
+客户端协议一致性断言与 A1 主套件**同一组**（避免两份协议真相）：
+
+- 金样单一真相：`@nbb-ionet/client-protocol/testing` 导出 `ENVELOPE_GOLDENS`
+  （11 个用例：§3/§4/§4.1/§5/§8/§11/§12.1–§12.4 的信封字节与形状，含键序、absent 键、未知字段透传）；
+- 本包套件 `src/conformance/envelope-goldens.test.ts` 断言 `EnvelopeCodec` 与金样字节一致；
+- A1 主套件 `packages/external-server/src/protocol-conformance.test.ts` 经
+  `@nbb-ionet/client-protocol/testing` 导入同一组金样，断言服务端产出帧一致
+  （external-server 仅作为 devDependency 在测试期引用，不进任何运行时依赖图）。
+
+修改信封形状/键序/absent 约束时只需改 `src/conformance/envelope-goldens.ts` 一处，
+两套套件同步生效（金样自洽断言 `JSON.stringify(decoded) === wire` 先行兜底）。

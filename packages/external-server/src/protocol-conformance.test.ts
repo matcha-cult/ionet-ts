@@ -14,6 +14,17 @@ import {
 } from '@nbb-ionet/core-framework';
 import { WebSocketExternalServer, type WebSocketAuthInput } from './websocket/ws-server.js';
 import { HttpExternalServer } from './http/http-server.js';
+// A3 任务 3：协议一致性金样单一真相 —— A1 套件与 @nbb-ionet/client-protocol 客户端
+// 套件消费同一组 ENVELOPE_GOLDENS（经 ./testing 子路径），避免两份协议真相。
+import { ENVELOPE_GOLDENS, type EnvelopeGolden } from '@nbb-ionet/client-protocol/testing';
+
+function golden(id: string): EnvelopeGolden {
+  const g = ENVELOPE_GOLDENS.find((item) => item.id === id);
+  if (!g) {
+    throw new Error('missing envelope golden: ' + id);
+  }
+  return g;
+}
 
 /**
  * A1 · 协议一致性套件（PROTOCOL.md 条款 ↔ 可执行断言）。
@@ -24,6 +35,8 @@ import { HttpExternalServer } from './http/http-server.js';
  *
  * 约定：
  * - 每个用例名以「§N」开头标注其断言的 PROTOCOL.md 条款（必要时组合多条）；
+ * - 信封形状/字节断言与 @nbb-ionet/client-protocol 的协议一致性金样同源（A3 任务 3）：
+ *   同一组 ENVELOPE_GOLDENS（经 './testing' 子路径），避免两份协议真相；
  * - 只增测试、不改运行时：既有 45 个用例零改动、保持全绿；
  * - WS 侧统一 attach 模式（共享 http.Server、端口随机），HTTP 侧用独立固定端口（见 §9 describe）。
  *
@@ -227,19 +240,14 @@ describe('协议一致性套件 · §3 请求信封 → FlowContext（WS）', ()
 
   it('§3+§4.1 携带 reqId 的全字段信封被接受；reqId 按配对语义在响应中原样回显', async () => {
     // PROTOCOL.md §4.1：reqId 是「请求↔响应配对 id」，不进入 FlowContext，服务端在响应中原样回显。
+    // 请求形状与字段取自共享金样 request-full（A3 任务 3：同源）。
+    const request = golden('request-full').decoded;
     const ws = await connect(rig.port);
 
-    const res = await sendRequest(ws, {
-      cmd: CONFORMANCE_CMD,
-      subCmd: SUB_ECHO,
-      data: 'full',
-      headers: { h: '1' },
-      traceId: 't-1',
-      reqId: 'r-full',
-    });
+    const res = await sendRequest(ws, request as Record<string, unknown>);
 
-    expect(res.reqId).toBe('r-full');
-    expect(res.data).toBe('full');
+    expect(res.reqId).toBe(golden('request-full').decoded.reqId);
+    expect(res.data).toBe(golden('request-full').decoded.data);
 
     await closeWebSocket(ws);
   });
@@ -269,7 +277,8 @@ describe('协议一致性套件 · §4 响应信封（WS）', () => {
       data: 'legacy',
     });
 
-    expect(raw).toBe(JSON.stringify({ data: 'legacy' }));
+    // 字节真相取自共享金样（A3 任务 3）：response-legacy-success
+    expect(raw).toBe(golden('response-legacy-success').wire);
 
     await closeWebSocket(ws);
   });
@@ -278,10 +287,12 @@ describe('协议一致性套件 · §4 响应信封（WS）', () => {
     const ws = await connect(rig.port);
 
     const res = await sendRequest(ws, { cmd: 999, subCmd: 999, data: null });
+    const legacyError = golden('response-legacy-error').decoded;
 
-    expect(res.errorCode).toBe(404);
-    expect('reqId' in res).toBe(false);
-    expect('kind' in res).toBe(false);
+    expect(res.errorCode).toBe(legacyError.errorCode);
+    for (const absent of golden('response-legacy-error').absent ?? []) {
+      expect(absent in res).toBe(false);
+    }
 
     await closeWebSocket(ws);
   });
@@ -296,9 +307,11 @@ describe('协议一致性套件 · §4 响应信封（WS）', () => {
       reqId: 'r-1',
     });
 
-    expect(res).toEqual({ data: { a: 1 }, reqId: 'r-1', kind: 'response' });
-    expect('cmd' in res).toBe(false);
-    expect('subCmd' in res).toBe(false);
+    // 形状真相取自共享金样（A3 任务 3）：response-new
+    expect(res).toEqual(golden('response-new').decoded);
+    for (const absent of golden('response-new').absent ?? []) {
+      expect(absent in res).toBe(false);
+    }
 
     await closeWebSocket(ws);
   });
@@ -327,11 +340,13 @@ describe('协议一致性套件 · §5 推送信封 / §11 Broadcaster / §12.4 
     rig.server.broadcastNotification({ cmd: 100, subCmd: 1, data: { hello: 'world' } });
 
     const frame = await pending;
-    expect(frame.kind).toBe('notification');
+    const expected = golden('notification-broadcast').decoded;
+    expect(frame.kind).toBe(expected.kind);
     expect(frame.kind).not.toBe('response');
-    expect(frame.cmd).toBe(100);
-    expect(frame.subCmd).toBe(1);
-    expect(frame.data).toEqual({ hello: 'world' });
+    expect(frame.cmd).toBe(expected.cmd);
+    expect(frame.subCmd).toBe(expected.subCmd);
+    expect(frame.data).toEqual(expected.data);
+    // 时间戳由框架注入当前时刻：金样存具体值，这里只断言存在且为 number
     expect(typeof frame.timestamp).toBe('number');
 
     await closeWebSocket(ws);
@@ -346,9 +361,10 @@ describe('协议一致性套件 · §5 推送信封 / §11 Broadcaster / §12.4 
     expect(hit).toBe(true);
 
     const frame = await pending;
-    expect(frame.kind).toBe('notification');
-    expect(frame.cmd).toBe(200);
-    expect(frame.data).toEqual({ n: 1 });
+    const expected = golden('notification-send').decoded;
+    expect(frame.kind).toBe(expected.kind);
+    expect(frame.cmd).toBe(expected.cmd);
+    expect(frame.data).toEqual(expected.data);
 
     expect(rig.server.sendNotification(999999n, { cmd: 1, subCmd: 1 })).toBe(false);
 
@@ -392,11 +408,8 @@ describe('协议一致性套件 · §5 推送信封 / §11 Broadcaster / §12.4 
 
     expect(frames).toHaveLength(1);
     const frame = JSON.parse(frames[0]);
-    expect(frame.kind).toBe('notification');
-    expect(frame.type).toBe('room.tick');
-    expect(frame.data).toEqual({ n: 1 });
-    expect(frame.timestamp).toBe(1700000000000);
-    expect(frame.fromUserId).toBe('42');
+    // 整帧形状取自共享金样（A3 任务 3）：notification-broadcaster
+    expect(frame).toEqual(golden('notification-broadcaster').decoded);
   });
 
   it('§12.4 broadcast(unknown)：旧裸透传逐字节不变（不注入 kind）', async () => {
@@ -406,7 +419,8 @@ describe('协议一致性套件 · §5 推送信封 / §11 Broadcaster / §12.4 
     rig.server.broadcast({ type: 'notification', message: 'legacy' });
 
     const raw = await pending;
-    expect(raw).toBe(JSON.stringify({ type: 'notification', message: 'legacy' }));
+    // 旧裸透传逐字节不变：字节真相取自共享金样（A3 任务 3）
+    expect(raw).toBe(golden('passthrough-legacy-push').wire);
 
     await closeWebSocket(ws);
   });
@@ -416,16 +430,12 @@ describe('协议一致性套件 · §5 推送信封 / §11 Broadcaster / §12.4 
     await delay(60); // 等待握手绑定 userId 完成
 
     const pending = nextRaw(ws);
-    const hit = rig.server.sendTo(PUSH_USER, {
-      kind: 'notification',
-      cmd: 300,
-      subCmd: 1,
-      data: {},
-    });
+    const payload = golden('passthrough-sendto').decoded;
+    const hit = rig.server.sendTo(PUSH_USER, payload as Record<string, unknown>);
     expect(hit).toBe(true);
 
     const raw = await pending;
-    expect(raw).toBe(JSON.stringify({ kind: 'notification', cmd: 300, subCmd: 1, data: {} }));
+    expect(raw).toBe(golden('passthrough-sendto').wire);
 
     await closeWebSocket(ws);
   });
@@ -538,10 +548,11 @@ describe('协议一致性套件 · §8 错误语义（WS）', () => {
     const ws = await connect(rig.port);
 
     const res = await sendRequest(ws, { cmd: 999, subCmd: 999, data: null, reqId: 'r-404' });
+    const expected = golden('response-new-error').decoded;
 
-    expect(res.errorCode).toBe(404);
-    expect(res.reqId).toBe('r-404');
-    expect(res.kind).toBe('response');
+    expect(res.errorCode).toBe(expected.errorCode);
+    expect(res.reqId).toBe(expected.reqId);
+    expect(res.kind).toBe(expected.kind);
 
     await closeWebSocket(ws);
   });
@@ -626,13 +637,15 @@ describe('协议一致性套件 · §9 HTTP fallback 通道', () => {
     const ok = await post('/api/' + CONFORMANCE_CMD + '/' + SUB_ECHO, JSON.stringify('Hello'));
     const okBody = await ok.json();
     expect(okBody).toEqual({ data: 'Hello' });
-    expect('reqId' in okBody).toBe(false);
-    expect('kind' in okBody).toBe(false);
+    for (const absent of golden('response-legacy-success').absent ?? []) {
+      expect(absent in okBody).toBe(false);
+    }
 
     const notFound = await post('/api/999/999', JSON.stringify(null));
     const notFoundBody = await notFound.json();
     expect(notFoundBody.errorCode).toBe(404);
-    expect('reqId' in notFoundBody).toBe(false);
-    expect('kind' in notFoundBody).toBe(false);
+    for (const absent of golden('response-legacy-error').absent ?? []) {
+      expect(absent in notFoundBody).toBe(false);
+    }
   });
 });

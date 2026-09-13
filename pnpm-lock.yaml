@@ -375,6 +375,9 @@ importers:
         specifier: ^8.21.0
         version: 8.21.0
     devDependencies:
+      '@nbb-ionet/client-protocol':
+        specifier: workspace:*
+        version: link:../client-protocol
       '@swc/core':
         specifier: ^1.5.0
         version: 1.15.43
