@@ -1,7 +1,7 @@
 {
-  "name": "@nbb-ionet/extension-nestjs",
+  "name": "@nbb-ionet/logic-server",
   "version": "0.1.0",
-  "description": "ionet NestJS integration — Module, Provider, Action auto-registration",
+  "description": "ionet logic server runtime — LogicServer host, server registry, distributed routing, Redis RPC, OnExternal",
   "author": "NbbJack",
   "type": "module",
   "main": "dist/index.js",
@@ -21,24 +21,13 @@
     "@nbb-ionet/common-kit": "workspace:*",
     "@nbb-ionet/core-framework": "workspace:*",
     "@nbb-ionet/external-server": "workspace:*",
-    "@nbb-ionet/logic-server": "workspace:*",
     "@nbb-ionet/redis": "workspace:*"
   },
-  "peerDependencies": {
-    "@nestjs/common": ">=10.0.0",
-    "@nestjs/core": ">=10.0.0",
-    "reflect-metadata": ">=0.1.0"
-  },
   "devDependencies": {
-    "@nestjs/common": "^10.4.0",
-    "@nestjs/core": "^10.4.0",
-    "@nestjs/platform-express": "^10.4.0",
-    "@nestjs/testing": "^10.4.0",
     "@swc/core": "^1.5.0",
     "@types/ws": "^8.18.1",
-    "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.0",
     "tsup": "^8.0.0",
+    "tsx": "^4.22.4",
     "typescript": "^5.4.0",
     "vitest": "^1.6.0",
     "ws": "^8.21.0"

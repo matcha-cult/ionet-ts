@@ -16,4 +16,36 @@ export {
   type InstanceEventPayload,
   createIpcMessage,
 } from './redis-types.js';
-export { DistributedBroadcasterDecorator } from './distributed-broadcaster-decorator.js';
+export {
+  DistributedBroadcasterDecorator,
+  ConnectionOwnerUnknownError,
+  ConnectionOwnerOfflineError,
+  type DistributedBroadcasterDecoratorOptions,
+  type ConnectionOwnerStore,
+} from './distributed-broadcaster-decorator.js';
+export {
+  RedisRequestReply,
+  RpcTimeoutError,
+  RpcPeerError,
+  type RedisRequestReplyOptions,
+  type RpcHandler,
+  type RpcRequestMessage,
+  type RpcReplyMessage,
+  type RpcStats,
+} from './redis-request-reply.js';
+export {
+  ServerRegistry,
+  type ServerRecord,
+  type ServerRole,
+  type ServerRegistryOptions,
+  type ServerRegistryEvent,
+  type ServerDuplicate,
+} from './server-registry.js';
+export {
+  ConnectionRegistryStore,
+  type ConnectionRegistryStoreOptions,
+} from './connection-registry-store.js';
+export {
+  RedisOnExternalTransport,
+  type RedisOnExternalTransportOptions,
+} from './on-external-transport.js';

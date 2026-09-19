@@ -24,6 +24,15 @@ export interface ConnectionRegistry {
   getLocalConnection(userId: string): Connection | undefined;
 }
 
+/**
+ * RS6：连接上下线观测钩子。对外服实现把 userId 的首次上线/最后一次下线
+ * 上报给跨进程连接表；回调可异步，调用方不阻塞连接建立。
+ */
+export interface ConnectionObserver {
+  onUserOnline?(userId: string): void | Promise<void>;
+  onUserOffline?(userId: string): void | Promise<void>;
+}
+
 export interface RoomRegistry {
   join(roomId: string, userId: string): Promise<void>;
   leave(roomId: string, userId: string): Promise<void>;

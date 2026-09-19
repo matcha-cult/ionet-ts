@@ -18,8 +18,38 @@ export interface IonetModuleOptions {
   httpServer?: HttpServerOptions | false;
   /** WebSocket External Server options. Set to false to disable. */
   wsServer?: WsServerOptions | false;
-  /** Redis options. Set to false to disable. */
-  redis?: RedisClientOptions | false;
+  /** Redis 选项。`false` 关闭；`true` 用默认连接参数开启（RS7）。 */
+  redis?: RedisClientOptions | true | false;
+  /**
+   * RS7：Redis 选项对象上的附加分布式配置。
+   * - `distributed`（默认 true，仅 redis 开启时有效）：接入服务器注册表、分布式路由、
+   *   跨进程广播/连接表/OnExternal。置 false 时只连接 Redis（会话等），不启用分布式运行时。
+   * - `keyPrefix`：注册表/RPC/广播键前缀（多套集群隔离用）。
+   * - `instanceId`：本实例 id；缺省 redisClient.getInstanceId()。
+   * - `serverName` / `serverTag`：注册表中的对外服名称/tag。
+   * - `heartbeatIntervalMs` / `heartbeatTimeoutMs`：注册表心跳。
+   * - `callTimeoutMs`：跨服调用默认超时。
+   */
+  distributed?:
+    | boolean
+    | {
+        enabled?: boolean;
+        keyPrefix?: string;
+        instanceId?: string;
+        serverName?: string;
+        serverTag?: string;
+        heartbeatIntervalMs?: number;
+        heartbeatTimeoutMs?: number;
+        callTimeoutMs?: number;
+      };
+  /** RS7：会话走 Redis。enabled 时自动挂载 SessionInOut（除非 autoInOut: false）。 */
+  session?:
+    | boolean
+    | {
+        enabled?: boolean;
+        ttlSeconds?: number;
+        autoInOut?: boolean;
+      };
   /**
    * 是否提供 Broadcaster provider（默认 true）。
    * 置 false 时不创建 IONET_BROADCASTER；未使用推送的部署可据此保持零新增开销。

@@ -22,6 +22,11 @@ export class RedisPubSub {
     private readonly options: RedisPubSubOptions = {},
   ) {}
 
+  /** 本 pub/sub 所属实例 id（用于定向通道命名）。 */
+  getInstanceId(): string {
+    return this.redisClient.getInstanceId();
+  }
+
   async connect(): Promise<void> {
     if (this.connected) return;
     const subscriber = this.redisClient.getSubscriber();

@@ -9,6 +9,9 @@ export {
   IONET_HTTP_SERVER,
   IONET_WS_SERVER,
   IONET_REDIS_CLIENT,
+  IONET_REDIS_PUB_SUB,
+  IONET_SESSION_STORE,
+  IONET_EXTERNAL_RUNTIME,
   IONET_ACTIONS,
   IONET_BROADCASTER,
 } from './ionet.constants.js';
@@ -17,8 +20,12 @@ export type {
   BroadcastMessage,
   Connection,
   ConnectionRegistry,
+  ConnectionObserver,
   RoomRegistry,
+  SessionStore,
 } from '@nbb-ionet/core-framework';
+export type { ExternalServerRuntime, RedisLogicRouter } from '@nbb-ionet/logic-server';
+export type { ServerRecord, ServerRegistry } from '@nbb-ionet/redis';
 export type {
   IonetModuleOptions,
   IonetModuleAsyncOptions,

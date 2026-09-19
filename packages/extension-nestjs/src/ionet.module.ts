@@ -4,11 +4,15 @@ import {
   BarSkeleton,
   BarSkeletonBuilder,
   createMemoryBroadcaster,
+  DefaultSessionManager,
+  SessionInOut,
   type ActionFactoryBean,
+  type SessionStore,
 } from '@nbb-ionet/core-framework';
 import { HttpExternalServer, WebSocketExternalServer } from '@nbb-ionet/external-server';
+import { RedisClient, RedisPubSub, RedisSessionStore } from '@nbb-ionet/redis';
+import { ExternalServerRuntime } from '@nbb-ionet/logic-server';
 import { ActionFactoryBeanForNest } from './action-factory-bean-for-nest.js';
-import { RedisClient } from '@nbb-ionet/redis';
 import {
   IONET_MODULE_OPTIONS,
   IONET_BAR_SKELETON,
@@ -18,6 +22,9 @@ import {
   IONET_ACTIONS,
   IONET_FEATURE_ACTIONS,
   IONET_BROADCASTER,
+  IONET_EXTERNAL_RUNTIME,
+  IONET_REDIS_PUB_SUB,
+  IONET_SESSION_STORE,
 } from './ionet.constants.js';
 import type {
   IonetModuleOptions,
@@ -35,26 +42,152 @@ function resolveActionFactory(options: IonetModuleOptions): ActionFactoryBean | 
   return undefined;
 }
 
+interface ResolvedDistributedOptions {
+  enabled: boolean;
+  keyPrefix?: string;
+  instanceId?: string;
+  serverName?: string;
+  serverTag?: string;
+  heartbeatIntervalMs?: number;
+  heartbeatTimeoutMs?: number;
+  callTimeoutMs?: number;
+}
+
+/** RS7：redis 开启时默认启用分布式运行时；distributed 可显式关闭或细化。 */
+function resolveDistributedOptions(options: IonetModuleOptions): ResolvedDistributedOptions {
+  if (!options.redis) {
+    return { enabled: false };
+  }
+  if (options.distributed === false) {
+    return { enabled: false };
+  }
+  if (options.distributed === true || options.distributed === undefined) {
+    return { enabled: true };
+  }
+  const { enabled, ...rest } = options.distributed;
+  return { enabled: enabled !== false, ...rest };
+}
+
+interface ResolvedSessionOptions {
+  enabled: boolean;
+  ttlSeconds: number;
+  autoInOut: boolean;
+}
+
+function resolveSessionOptions(options: IonetModuleOptions): ResolvedSessionOptions {
+  if (options.session === true) {
+    return { enabled: true, ttlSeconds: 86400, autoInOut: true };
+  }
+  if (!options.session) {
+    return { enabled: false, ttlSeconds: 86400, autoInOut: false };
+  }
+  return {
+    enabled: options.session.enabled !== false,
+    ttlSeconds: options.session.ttlSeconds ?? 86400,
+    autoInOut: options.session.autoInOut !== false,
+  };
+}
+
 /**
- * 构造 Broadcaster provider（任务 1 / P0-5）。
+ * 构造 Broadcaster provider（任务 1 / P0-5；RS7 扩展）。
  *
- * 数据源：WebSocketExternalServer 的连接注册表适配器（connectionRegistry），
- * 使 MemoryBroadcaster 真正能看到在线连接；wsServer 未启用时退化为空注册表
- * （推送为安全 no-op，返回不抛错）。
- *
- * 默认提供；options.broadcaster === false 时返回 null。
+ * - 分布式运行时可用 → 返回 `DistributedBroadcasterDecorator`（跨进程定向推送 + 宕机显式报错）；
+ * - 否则退回进程内 MemoryBroadcaster（单实例行为与既有完全一致）。
  */
 function createBroadcasterProvider(): Provider {
   return {
     provide: IONET_BROADCASTER,
-    useFactory: (wsServer: WebSocketExternalServer | null, opts: IonetModuleOptions) => {
+    useFactory: (
+      runtime: ExternalServerRuntime | null,
+      wsServer: WebSocketExternalServer | null,
+      opts: IonetModuleOptions,
+    ) => {
       if (opts.broadcaster === false) {
         return null;
+      }
+      if (runtime) {
+        return runtime.getBroadcaster();
       }
       const connections = wsServer?.connectionRegistry;
       return createMemoryBroadcaster(connections ? { connections } : {}).broadcaster;
     },
-    inject: [IONET_WS_SERVER, IONET_MODULE_OPTIONS],
+    inject: [IONET_EXTERNAL_RUNTIME, IONET_WS_SERVER, IONET_MODULE_OPTIONS],
+  };
+}
+
+/** RS7：Redis pub/sub provider（分布式运行时与 Redis 会话共用）。 */
+function createPubSubProvider(): Provider {
+  return {
+    provide: IONET_REDIS_PUB_SUB,
+    useFactory: (redisClient: RedisClient | null) =>
+      redisClient ? new RedisPubSub(redisClient) : null,
+    inject: [IONET_REDIS_CLIENT],
+  };
+}
+
+/**
+ * RS7：对外服分布式运行时 provider。
+ *
+ * 在 DI 工厂阶段（早于 onModuleInit 的 wsServer.start）创建，确保连接上下线观测钩子
+ * 在连接建立前安装；同时把跨服路由器装到骨架，使未命中本地路由的请求转发给逻辑服。
+ */
+function createExternalRuntimeProvider(): Provider {
+  return {
+    provide: IONET_EXTERNAL_RUNTIME,
+    useFactory: async (
+      redisClient: RedisClient | null,
+      pubSub: RedisPubSub | null,
+      httpServer: HttpExternalServer | null,
+      wsServer: WebSocketExternalServer | null,
+      skeleton: BarSkeleton | null,
+      opts: IonetModuleOptions,
+    ): Promise<ExternalServerRuntime | null> => {
+      const distributed = resolveDistributedOptions(opts);
+      if (!redisClient || !pubSub || !distributed.enabled) return null;
+      const server = httpServer ?? wsServer;
+      if (!server) return null;
+
+      if (redisClient.getStatus() !== 'connected') {
+        await redisClient.connect();
+      }
+      await pubSub.connect();
+
+      return ExternalServerRuntime.start({
+        server,
+        wsServer: wsServer ?? undefined,
+        redisClient,
+        pubSub,
+        keyPrefix: distributed.keyPrefix,
+        instanceId: distributed.instanceId,
+        serverName: distributed.serverName ?? 'IonetExternalServer',
+        serverTag: distributed.serverTag,
+        heartbeatIntervalMs: distributed.heartbeatIntervalMs,
+        heartbeatTimeoutMs: distributed.heartbeatTimeoutMs,
+        defaultCallTimeoutMs: distributed.callTimeoutMs,
+        skeleton: skeleton ?? undefined,
+      });
+    },
+    inject: [
+      IONET_REDIS_CLIENT,
+      IONET_REDIS_PUB_SUB,
+      IONET_HTTP_SERVER,
+      IONET_WS_SERVER,
+      IONET_BAR_SKELETON,
+      IONET_MODULE_OPTIONS,
+    ],
+  };
+}
+
+/** RS7：Redis 会话存储 provider（session 开启时非 null）。 */
+function createSessionStoreProvider(): Provider {
+  return {
+    provide: IONET_SESSION_STORE,
+    useFactory: (redisClient: RedisClient | null, opts: IonetModuleOptions): SessionStore | null => {
+      const session = resolveSessionOptions(opts);
+      if (!redisClient || !session.enabled) return null;
+      return new RedisSessionStore(redisClient, { defaultTtl: session.ttlSeconds });
+    },
+    inject: [IONET_REDIS_CLIENT, IONET_MODULE_OPTIONS],
   };
 }
 
@@ -76,6 +209,9 @@ export class IonetModule implements OnModuleInit, OnModuleDestroy {
   private readonly httpServer: HttpExternalServer | null;
   private readonly wsServer: WebSocketExternalServer | null;
   private readonly redisClient: RedisClient | null;
+  private readonly pubSub: RedisPubSub | null;
+  private readonly sessionStore: SessionStore | null;
+  private readonly externalRuntime: ExternalServerRuntime | null;
   private readonly moduleOptions: IonetModuleOptions;
   // attach 模式共享的 NestJS http.Server，由应用侧经 attachHttpServer() 在 app.init() 之前推送
   private attachedHttpServer: Server | null;
@@ -86,11 +222,17 @@ export class IonetModule implements OnModuleInit, OnModuleDestroy {
     @Inject(IONET_WS_SERVER) wsServer: WebSocketExternalServer | null,
     @Inject(IONET_REDIS_CLIENT) redisClient: RedisClient | null,
     @Inject(IONET_MODULE_OPTIONS) moduleOptions: IonetModuleOptions,
+    @Optional() @Inject(IONET_REDIS_PUB_SUB) pubSub: RedisPubSub | null = null,
+    @Optional() @Inject(IONET_SESSION_STORE) sessionStore: SessionStore | null = null,
+    @Optional() @Inject(IONET_EXTERNAL_RUNTIME) externalRuntime: ExternalServerRuntime | null = null,
   ) {
     this.skeleton = skeleton;
     this.httpServer = httpServer;
     this.wsServer = wsServer;
     this.redisClient = redisClient;
+    this.pubSub = pubSub;
+    this.sessionStore = sessionStore;
+    this.externalRuntime = externalRuntime;
     this.moduleOptions = moduleOptions;
     this.attachedHttpServer = null;
   }
@@ -109,6 +251,30 @@ export class IonetModule implements OnModuleInit, OnModuleDestroy {
    */
   attachHttpServer(server: Server): void {
     this.attachedHttpServer = server;
+  }
+
+  private static buildModule(providers: Provider[], imports: any[]): DynamicModule {
+    return {
+      module: IonetModule,
+      imports,
+      providers: [
+        ...providers,
+        createPubSubProvider(),
+        createExternalRuntimeProvider(),
+        createSessionStoreProvider(),
+        createBroadcasterProvider(),
+      ],
+      exports: [
+        IONET_BAR_SKELETON,
+        IONET_HTTP_SERVER,
+        IONET_WS_SERVER,
+        IONET_REDIS_CLIENT,
+        IONET_REDIS_PUB_SUB,
+        IONET_SESSION_STORE,
+        IONET_EXTERNAL_RUNTIME,
+        IONET_BROADCASTER,
+      ],
+    };
   }
 
   static forRoot(options: IonetModuleOptions): DynamicModule {
@@ -188,30 +354,15 @@ export class IonetModule implements OnModuleInit, OnModuleDestroy {
         if (opts.redis === false || !opts.redis) {
           return null;
         }
-        return new RedisClient(opts.redis);
+        return new RedisClient(opts.redis === true ? {} : opts.redis);
       },
       inject: [IONET_MODULE_OPTIONS],
     };
 
-    return {
-      module: IonetModule,
-      providers: [
-        optionsProvider,
-        actionsProvider,
-        skeletonProvider,
-        httpServerProvider,
-        wsServerProvider,
-        redisProvider,
-        createBroadcasterProvider(),
-      ],
-      exports: [
-        IONET_BAR_SKELETON,
-        IONET_HTTP_SERVER,
-        IONET_WS_SERVER,
-        IONET_REDIS_CLIENT,
-        IONET_BROADCASTER,
-      ],
-    };
+    return IonetModule.buildModule(
+      [optionsProvider, actionsProvider, skeletonProvider, httpServerProvider, wsServerProvider, redisProvider],
+      [],
+    );
   }
 
   static forRootAsync(options: IonetModuleAsyncOptions): DynamicModule {
@@ -293,31 +444,15 @@ export class IonetModule implements OnModuleInit, OnModuleDestroy {
         if (opts.redis === false || !opts.redis) {
           return null;
         }
-        return new RedisClient(opts.redis);
+        return new RedisClient(opts.redis === true ? {} : opts.redis);
       },
       inject: [IONET_MODULE_OPTIONS],
     };
 
-    return {
-      module: IonetModule,
-      imports: options.imports ?? [],
-      providers: [
-        asyncOptionsProvider,
-        actionsProvider,
-        skeletonProvider,
-        httpServerProvider,
-        wsServerProvider,
-        redisProvider,
-        createBroadcasterProvider(),
-      ],
-      exports: [
-        IONET_BAR_SKELETON,
-        IONET_HTTP_SERVER,
-        IONET_WS_SERVER,
-        IONET_REDIS_CLIENT,
-        IONET_BROADCASTER,
-      ],
-    };
+    return IonetModule.buildModule(
+      [asyncOptionsProvider, actionsProvider, skeletonProvider, httpServerProvider, wsServerProvider, redisProvider],
+      options.imports ?? [],
+    );
   }
 
   async onModuleInit(): Promise<void> {
@@ -327,9 +462,12 @@ export class IonetModule implements OnModuleInit, OnModuleDestroy {
     // （app 已创建、所有 provider 就绪），再注册进骨架。
     this.registerDeferredActions();
 
-    if (this.redisClient) {
+    // 分布式运行时已在 provider 工厂内连接 Redis；此处兜底「仅 redis、未启用分布式」场景。
+    if (this.redisClient && this.redisClient.getStatus() !== 'connected') {
       await this.redisClient.connect();
     }
+
+    this.registerSessionInOut();
 
     if (this.httpServer && this.skeleton) {
       await this.httpServer.start(this.skeleton);
@@ -354,6 +492,19 @@ export class IonetModule implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * RS7：session 开启且 autoInOut 时，把 Redis 会话存储接到骨架的 SessionInOut。
+   * ttl 以秒传入（RedisSessionStore 语义）。
+   */
+  private registerSessionInOut(): void {
+    if (!this.skeleton || !this.sessionStore) return;
+    const session = resolveSessionOptions(this.moduleOptions);
+    if (!session.autoInOut) return;
+    this.skeleton.inOutChain.add(
+      new SessionInOut(new DefaultSessionManager(this.sessionStore, session.ttlSeconds)),
+    );
+  }
+
   private registerDeferredActions(): void {
     if (!this.skeleton || !this.skeleton.hasActionFactory()) return;
     for (const ActionClass of this.moduleOptions.actions ?? []) {
@@ -362,12 +513,20 @@ export class IonetModule implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
+    if (this.wsServer) {
+      await this.wsServer.stop();
+    }
+
     if (this.httpServer) {
       await this.httpServer.stop();
     }
 
-    if (this.wsServer) {
-      await this.wsServer.stop();
+    if (this.externalRuntime) {
+      await this.externalRuntime.stop();
+    }
+
+    if (this.pubSub) {
+      await this.pubSub.disconnect();
     }
 
     if (this.redisClient) {

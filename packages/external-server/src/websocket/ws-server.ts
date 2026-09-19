@@ -3,8 +3,10 @@ import { type IncomingMessage, type Server } from 'node:http';
 import {
   type BarSkeleton,
   type Connection,
+  type ConnectionObserver,
   type ConnectionRegistry,
   MemoryConnectionRegistry,
+  OnExternalTemplates,
   createNotificationMessage,
   createResponseMessage,
   type NotificationMessageInput,
@@ -85,6 +87,8 @@ export class WebSocketExternalServer extends BaseExternalServer {
    * WeakMap 以 req 为键，连接建立后即删除，避免长期持有请求对象。
    */
   private readonly pendingAuthUserIds = new WeakMap<IncomingMessage, bigint>();
+  /** RS6：连接上下线观测钩子（由分布式运行时注入，登记跨进程连接表）。 */
+  private connectionObserver: ConnectionObserver | null = null;
   private readonly wsOptions: WebSocketExternalServerOptions;
   private readonly path: string;
   private readonly heartbeatInterval: number;
@@ -102,6 +106,38 @@ export class WebSocketExternalServer extends BaseExternalServer {
     this.wsOptions = options;
     this.path = options.path ?? '/ws';
     this.heartbeatInterval = options.heartbeatInterval ?? 30000;
+    this.registerDefaultOnExternalHandlers();
+  }
+
+  /**
+   * RS6：默认 OnExternal handler。
+   * - `forceOffline`：关闭该 userId 的全部连接（返回是否原本在线）；
+   * - `existUser`：返回该 userId 是否在线。
+   * 业务可注册同 templateId 覆盖默认实现。
+   */
+  private registerDefaultOnExternalHandlers(): void {
+    this.onExternal.register({
+      templateId: OnExternalTemplates.FORCE_OFFLINE,
+      process: (context) => {
+        if (!context.userId) return false;
+        const userId = BigInt(context.userId);
+        const existed = this.hasOpenConnection(userId);
+        this.closeUserConnections(userId);
+        return existed;
+      },
+    });
+    this.onExternal.register({
+      templateId: OnExternalTemplates.EXIST_USER,
+      process: (context) => {
+        if (!context.userId) return false;
+        return this.hasOpenConnection(BigInt(context.userId));
+      },
+    });
+  }
+
+  /** 注入连接上下线观测钩子（须在 start() 之前调用才覆盖已有连接）。 */
+  setConnectionObserver(observer: ConnectionObserver | null): void {
+    this.connectionObserver = observer;
   }
 
   /**
@@ -331,6 +367,8 @@ export class WebSocketExternalServer extends BaseExternalServer {
       this.userConnections.set(userId, set);
       // 该 userId 首次出现：登记扇出 Connection（后续同 userId 连接复用同一注册项）
       this.registry.register(String(userId), this.createFanoutConnection(userId));
+      // RS6：上报跨进程连接表（首次上线）
+      void this.connectionObserver?.onUserOnline?.(String(userId));
     }
     set.add(connection);
   }
@@ -344,6 +382,8 @@ export class WebSocketExternalServer extends BaseExternalServer {
       if (set.size === 0) {
         this.userConnections.delete(userId);
         this.registry.unregister(String(userId));
+        // RS6：上报跨进程连接表（最后一次下线）
+        void this.connectionObserver?.onUserOffline?.(String(userId));
       }
     }
     connection.userId = undefined;

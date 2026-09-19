@@ -1,5 +1,6 @@
 import { CmdInfo } from './cmd-info.js';
 import { type ActionCommand } from './action-command.js';
+import { merge } from './cmd-kit.js';
 
 export class ActionCommandRegion {
   readonly cmd: number;
@@ -70,6 +71,17 @@ export class ActionCommandRegions {
     const result: ActionCommand[] = [];
     for (const region of this.regionMap.values()) {
       result.push(...region.values());
+    }
+    return result;
+  }
+
+  /** RS2：本进程路由表的全部 cmdMerge，用于服务器元数据注册与跨进程重复路由检测。 */
+  listCmdMerges(): number[] {
+    const result: number[] = [];
+    for (const region of this.regionMap.values()) {
+      for (const subCmd of region.getSubCmds()) {
+        result.push(merge(region.cmd, subCmd));
+      }
     }
     return result;
   }

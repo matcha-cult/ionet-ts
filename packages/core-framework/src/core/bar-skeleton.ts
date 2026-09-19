@@ -5,6 +5,7 @@ import { DefaultActionCommandParser } from './action-command-parser.js';
 import { FlowContext, runWithFlowContext, type Request } from './flow/flow-context.js';
 import { InOutChain, type ActionMethodInOut } from './flow/action-method-inout.js';
 import { type ActionFactoryBean } from './action-factory-bean.js';
+import { CrossServerError, type CrossServerRouter } from './communication/index.js';
 
 export interface BarSkeletonSetting {
   printSlow?: boolean;
@@ -43,6 +44,11 @@ export class BarSkeleton {
    * 未设置时 addAction 直接 new ActionClass()（行为不变）。
    */
   private actionFactory: ActionFactoryBean | null = null;
+  /**
+   * RS3：可选的跨服路由器。本地路由表未命中时，把请求转发给注册表解析出的逻辑服；
+   * 未配置时保持既有行为（本地未命中即 404）。
+   */
+  private crossServerRouter: CrossServerRouter | null = null;
 
   constructor(
     actionCommandRegions: ActionCommandRegions,
@@ -58,6 +64,18 @@ export class BarSkeleton {
     for (const inOut of inOuts) {
       this.inOutChain.add(inOut);
     }
+  }
+
+  /**
+   * 设置跨服路由器。设为 null 可清除。未设置时本地未命中返回 404（既有行为）。
+   */
+  setCrossServerRouter(router: CrossServerRouter | null): void {
+    this.crossServerRouter = router;
+  }
+
+  /** 是否配置了跨服路由器（供上层决定是否把未命中路由视为「配置错误」）。 */
+  hasCrossServerRouter(): boolean {
+    return this.crossServerRouter !== null;
   }
 
   /**
@@ -95,6 +113,11 @@ export class BarSkeleton {
     const actionCommand = this.actionCommandRegions.getActionCommand(cmdInfo);
 
     if (!actionCommand) {
+      // RS3：本地路由表未命中时，若配置了跨服路由器则转发给注册表解析出的逻辑服。
+      // 未注册路由由路由器抛 NOT_REGISTERED，这里映射为显式错误码（503），不静默 404。
+      if (this.crossServerRouter) {
+        return this.forwardToLogicServer(cmdInfo, request, hooks);
+      }
       return {
         errorCode: 404,
         errorMessage: `Action not found for cmd=${request.cmd}, subCmd=${request.subCmd}`,
@@ -131,6 +154,48 @@ export class BarSkeleton {
     const userId = ctx.getUserId();
     if (userId !== 0n) {
       hooks?.onBound?.(userId);
+    }
+  }
+
+  /**
+   * RS3 转发路径：为本次请求构造一个本地 FlowContext 以承载 onFlowContext 钩子
+   * （外部服据此预置连接已绑定的 userId），再把 userId/traceId/headers 透传给逻辑服。
+   */
+  private async forwardToLogicServer(
+    cmdInfo: CmdInfo,
+    request: Request,
+    hooks?: BarSkeletonExecuteHooks,
+  ): Promise<{ data?: unknown; errorCode?: number; errorMessage?: string }> {
+    const router = this.crossServerRouter!;
+    const ctx = new FlowContext();
+    ctx.setCmdInfo(cmdInfo);
+    ctx.setRequest(request);
+    hooks?.onFlowContext?.(ctx);
+
+    const userId = ctx.getUserId();
+    try {
+      const response = await router.forward(cmdInfo, request.data, {
+        userId: userId === 0n ? undefined : userId.toString(),
+        traceId: request.traceId,
+        headers: request.headers,
+      });
+
+      // 逻辑服执行后绑定的 userId（登录类 Action）回传后由外部服登记连接。
+      if (response.userId !== undefined && response.userId !== '0') {
+        hooks?.onBound?.(BigInt(response.userId));
+      }
+
+      return {
+        data: response.data,
+        errorCode: response.errorCode,
+        errorMessage: response.errorMessage,
+      };
+    } catch (error) {
+      if (error instanceof CrossServerError) {
+        return { errorCode: error.errorCode, errorMessage: error.message };
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      return { errorCode: 500, errorMessage: message };
     }
   }
 

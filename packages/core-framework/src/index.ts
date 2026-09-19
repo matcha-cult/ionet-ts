@@ -22,6 +22,7 @@ export {
   flowContextStorage,
   getCurrentFlowContext,
   runWithFlowContext,
+  type CrossServerCallOptions,
   EmptyFlowContext,
   emptyFlowContext,
   createFlowContext,
@@ -29,6 +30,16 @@ export {
   FlowContextKeys,
   type FlowContextKey,
 } from './core/flow/index.js';
+export {
+  CommunicationKit,
+  CrossServerError,
+  resolveCmdInfo,
+  type CrossServerErrorCode,
+  type CrossServerErrorTarget,
+  type CrossServerCallContext,
+  type CrossServerResponse,
+  type CrossServerRouter,
+} from './core/communication/index.js';
 export {
   type ActionCommand,
   type ActionMethodParameter,
@@ -60,6 +71,7 @@ export { BarSkeletonManager } from './core/bar-skeleton-manager.js';
 export {
   ActionCommandRegionGlobalCheckKit,
   type DuplicateRoute,
+  type CmdMergeRegion,
 } from './core/kit/global-check.js';
 export {
   type ActionMethodInOut,
@@ -117,6 +129,7 @@ export {
   type BroadcastMessage,
   type Connection,
   type ConnectionRegistry,
+  type ConnectionObserver,
   type RoomRegistry,
   type Broadcaster,
   MemoryBroadcaster,
@@ -125,3 +138,11 @@ export {
   type BroadcasterFactoryOptions,
   createMemoryBroadcaster,
 } from './broadcast/index.js';
+export {
+  OnExternalTemplates,
+  OnExternalError,
+  OnExternalRegistry,
+  type OnExternal,
+  type OnExternalContext,
+  type OnExternalTemplateId,
+} from './external/index.js';
