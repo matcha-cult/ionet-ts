@@ -95,11 +95,12 @@ TS 移植从「N 个相同的对外服实例」补齐为「**1 对外服 + N 逻
 ## 4. 验收与测试
 
 多进程集成测试（**2 逻辑服进程 + 1 对外服进程 + 真实 Redis**）：
-`packages/logic-server/src/integration/cluster.integration.test.ts`（14 例）
+`packages/logic-server/src/integration/cluster.integration.test.ts`（15 例）
 - RS1/RS3 对外服无本地 Action → 跨进程转发；RS2 注册/发现/下线；
 - RS5 battle→map 同步调用、单向 send、userId 跨进程绑定；
 - RS3 未注册路由显式 503；
-- RS4 超时 504、对端崩溃 502 `PEER_OFFLINE`、优雅下线 503 `NOT_REGISTERED`；
+- RS4 超时 504、对端崩溃 502 `PEER_OFFLINE`、优雅下线 503 `NOT_REGISTERED`、
+  跨进程重复回包去重（`double-reply-harness.ts` 故意回两次包，调用方只 resolve 一次）；
 - RS6 跨进程推送、OnExternal 强制下线、连接上下线登记、实例宕机显式报错；
 - RS8 重复路由启动失败。
 

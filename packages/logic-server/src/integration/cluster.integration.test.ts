@@ -3,7 +3,13 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { WebSocket } from 'ws';
-import { RedisClient, RedisPubSub, ServerRegistry, ConnectionRegistryStore } from '@nbb-ionet/redis';
+import {
+  ConnectionRegistryStore,
+  RedisClient,
+  RedisPubSub,
+  RedisRequestReply,
+  ServerRegistry,
+} from '@nbb-ionet/redis';
 
 /**
  * 多进程集成测试（验收核心）：
@@ -20,6 +26,7 @@ import { RedisClient, RedisPubSub, ServerRegistry, ConnectionRegistryStore } fro
 const PKG_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const LOGIC_HARNESS = fileURLToPath(new URL('./logic-server-harness.ts', import.meta.url));
 const EXTERNAL_HARNESS = fileURLToPath(new URL('./external-server-harness.ts', import.meta.url));
+const DOUBLE_REPLY_HARNESS = fileURLToPath(new URL('./double-reply-harness.ts', import.meta.url));
 
 /**
  * 用 `node --import tsx`（同进程 loader）而非 `tsx` CLI 启动 harness：
@@ -491,6 +498,50 @@ describe('RS8 跨进程重复路由检测', () => {
 
     await cluster.stopAll();
   }, 60000);
+});
+
+describe('RS4 失败路径：跨进程重复回包去重', () => {
+  it('对端对同一 correlationId 回两次包时调用方只 resolve 一次并记录重复', async () => {
+    const prefix = `ionet-test-double-${runId()}:`;
+    const childId = `double-${runId()}`;
+    const spawned = spawnHarness(DOUBLE_REPLY_HARNESS, {
+      IONET_INSTANCE_ID: childId,
+      IONET_KEY_PREFIX: prefix,
+      IONET_REDIS_PORT: String(REDIS_PORT),
+    });
+
+    try {
+      await waitForReady(spawned);
+
+      const requesterId = `requester-${runId()}`;
+      const client = new RedisClient({ instanceId: requesterId });
+      await client.connect();
+      const pubSub = new RedisPubSub(client);
+      await pubSub.connect();
+      const rpc = new RedisRequestReply(client, pubSub, {
+        keyPrefix: prefix,
+        instanceId: requesterId,
+        defaultTimeoutMs: 3000,
+      });
+      await rpc.start();
+
+      try {
+        const reply = await rpc.call(childId, 'logic.action', { x: 1 });
+        // 只 resolve 一次：拿到手工回包或框架正式回包之一，不因重复回包二次触发
+        expect(reply).toMatchObject({ data: { source: expect.any(String) } });
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        expect(rpc.getStats().duplicateReplies).toBeGreaterThanOrEqual(1);
+        expect(rpc.getStats().pending).toBe(0);
+      } finally {
+        await rpc.stop().catch(() => {});
+        await pubSub.disconnect().catch(() => {});
+        await client.disconnect().catch(() => {});
+      }
+    } finally {
+      spawned.child.kill('SIGTERM');
+      await waitForExit(spawned.child, 8000).catch(() => spawned.child.kill('SIGKILL'));
+    }
+  }, 30000);
 });
 
 describe('RS6 逻辑服 → 对外服反向通道', () => {
