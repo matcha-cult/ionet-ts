@@ -2,8 +2,10 @@ import { CmdInfo } from './cmd-info.js';
 import { type ActionCommand } from './action-command.js';
 import { ActionCommandRegions } from './action-command-region.js';
 import { DefaultActionCommandParser } from './action-command-parser.js';
-import { FlowContext, runWithFlowContext } from './flow/flow-context.js';
+import { FlowContext, runWithFlowContext, type Request } from './flow/flow-context.js';
 import { InOutChain, type ActionMethodInOut } from './flow/action-method-inout.js';
+import { type ActionFactoryBean } from './action-factory-bean.js';
+import { CrossServerError, type CrossServerRouter } from './communication/index.js';
 
 export interface BarSkeletonSetting {
   printSlow?: boolean;
@@ -15,10 +17,38 @@ export interface BarSkeletonOptions {
   inOuts?: ActionMethodInOut[];
 }
 
+/**
+ * execute 的可选观测钩子。用于在不改变返回信封的前提下，让外部服感知本次执行的
+ * FlowContext 与最终绑定的 userId（连接注册表 / 定向推送接线用）。
+ *
+ * 取舍（任务 1）：在 (a) execute hooks、(b) executeWithContext 返回 { response, userId }、
+ * (c) 外部服注册内部 InOut 三种方案中选 (a)：
+ * - 返回值与既有签名零变化，向后兼容最强；
+ * - 无需外部服接触 InOut 链内部；
+ * - 不影响无钩子的既有调用点（全部 TS 编译期可选）。
+ */
+export interface BarSkeletonExecuteHooks {
+  /** FlowContext 创建并写入 request 后立即调用（inOut/Action 执行之前）。 */
+  onFlowContext?(ctx: FlowContext): void;
+  /** 本次执行结束时 userId !== 0n 才会调用（成功、失败两条路径都会触发）。 */
+  onBound?(userId: bigint): void;
+}
+
 export class BarSkeleton {
   readonly actionCommandRegions: ActionCommandRegions;
   readonly inOutChain: InOutChain;
   private readonly setting: BarSkeletonSetting;
+  private readonly actionCommandParser = new DefaultActionCommandParser();
+  /**
+   * 可选的 Action 实例工厂（任务 4）。用于让 Action 走外部 DI 容器（如 NestJS），
+   * 未设置时 addAction 直接 new ActionClass()（行为不变）。
+   */
+  private actionFactory: ActionFactoryBean | null = null;
+  /**
+   * RS3：可选的跨服路由器。本地路由表未命中时，把请求转发给注册表解析出的逻辑服；
+   * 未配置时保持既有行为（本地未命中即 404）。
+   */
+  private crossServerRouter: CrossServerRouter | null = null;
 
   constructor(
     actionCommandRegions: ActionCommandRegions,
@@ -36,15 +66,58 @@ export class BarSkeleton {
     }
   }
 
-  async execute(request: {
-    cmd: number;
-    subCmd: number;
-    data?: unknown;
-  }): Promise<{ data?: unknown; errorCode?: number; errorMessage?: string }> {
+  /**
+   * 设置跨服路由器。设为 null 可清除。未设置时本地未命中返回 404（既有行为）。
+   */
+  setCrossServerRouter(router: CrossServerRouter | null): void {
+    this.crossServerRouter = router;
+  }
+
+  /** 是否配置了跨服路由器（供上层决定是否把未命中路由视为「配置错误」）。 */
+  hasCrossServerRouter(): boolean {
+    return this.crossServerRouter !== null;
+  }
+
+  /**
+   * 设置 Action 实例工厂。设为 null 可清除。未设置时回退 new（行为不变）。
+   */
+  setActionFactory(factory: ActionFactoryBean | null): void {
+    this.actionFactory = factory;
+  }
+
+  /** 是否配置了 Action 实例工厂（供上层决定是否把实例解析延迟到容器就绪后）。 */
+  hasActionFactory(): boolean {
+    return this.actionFactory !== null;
+  }
+
+  /**
+   * 注册单个 Action 类到路由表。可在构建后追加注册（如 NestJS feature 模块场景）。
+   * 实例优先级：显式 instance > actionFactory.getBean() > new ActionClass()。
+   * 工厂返回 undefined 时回退 new，保证「未提供工厂时行为不变」。
+   */
+  addAction(ActionClass: Function, instance?: object): void {
+    const controllerInstance =
+      instance ??
+      this.actionFactory?.getBean(ActionClass as new (...args: any[]) => object) ??
+      new (ActionClass as new () => object)();
+    this.actionCommandParser.parse(ActionClass, controllerInstance, {
+      actionCommandRegions: this.actionCommandRegions,
+    });
+  }
+
+  async execute(
+    request: Request,
+    hooks?: BarSkeletonExecuteHooks,
+  ): Promise<{ data?: unknown; errorCode?: number; errorMessage?: string }> {
     const cmdInfo = CmdInfo.of(request.cmd, request.subCmd);
     const actionCommand = this.actionCommandRegions.getActionCommand(cmdInfo);
 
     if (!actionCommand) {
+      // RS3：本地路由表未命中时，若配置了跨服路由器则转发给注册表解析出的逻辑服。
+      // 未注册路由由路由器抛 NOT_REGISTERED，这里映射为显式错误码（503），不静默 404。
+      if (this.crossServerRouter) {
+        return this.forwardToLogicServer(cmdInfo, request, hooks);
+      }
       return {
         errorCode: 404,
         errorMessage: `Action not found for cmd=${request.cmd}, subCmd=${request.subCmd}`,
@@ -54,6 +127,7 @@ export class BarSkeleton {
     const ctx = new FlowContext();
     ctx.setCmdInfo(cmdInfo);
     ctx.setRequest(request);
+    hooks?.onFlowContext?.(ctx);
 
     return runWithFlowContext(ctx, async () => {
       this.inOutChain.fuckInAll(ctx);
@@ -61,6 +135,7 @@ export class BarSkeleton {
         const result = await this.invokeAction(actionCommand, ctx, request.data);
         ctx.setMethodResult(result);
         this.inOutChain.fuckOutAll(ctx);
+        this.notifyBound(ctx, hooks);
         return { data: result };
       } catch (error) {
         const errorMessage =
@@ -68,9 +143,60 @@ export class BarSkeleton {
         ctx.setErrorCode(500);
         ctx.setErrorMessage(errorMessage);
         this.inOutChain.fuckOutAll(ctx);
+        this.notifyBound(ctx, hooks);
         return { errorCode: 500, errorMessage };
       }
     });
+  }
+
+  /** userId === 0n 视为未绑定，不得向外报告（任务 1 硬约束）。 */
+  private notifyBound(ctx: FlowContext, hooks?: BarSkeletonExecuteHooks): void {
+    const userId = ctx.getUserId();
+    if (userId !== 0n) {
+      hooks?.onBound?.(userId);
+    }
+  }
+
+  /**
+   * RS3 转发路径：为本次请求构造一个本地 FlowContext 以承载 onFlowContext 钩子
+   * （外部服据此预置连接已绑定的 userId），再把 userId/traceId/headers 透传给逻辑服。
+   */
+  private async forwardToLogicServer(
+    cmdInfo: CmdInfo,
+    request: Request,
+    hooks?: BarSkeletonExecuteHooks,
+  ): Promise<{ data?: unknown; errorCode?: number; errorMessage?: string }> {
+    const router = this.crossServerRouter!;
+    const ctx = new FlowContext();
+    ctx.setCmdInfo(cmdInfo);
+    ctx.setRequest(request);
+    hooks?.onFlowContext?.(ctx);
+
+    const userId = ctx.getUserId();
+    try {
+      const response = await router.forward(cmdInfo, request.data, {
+        userId: userId === 0n ? undefined : userId.toString(),
+        traceId: request.traceId,
+        headers: request.headers,
+      });
+
+      // 逻辑服执行后绑定的 userId（登录类 Action）回传后由外部服登记连接。
+      if (response.userId !== undefined && response.userId !== '0') {
+        hooks?.onBound?.(BigInt(response.userId));
+      }
+
+      return {
+        data: response.data,
+        errorCode: response.errorCode,
+        errorMessage: response.errorMessage,
+      };
+    } catch (error) {
+      if (error instanceof CrossServerError) {
+        return { errorCode: error.errorCode, errorMessage: error.message };
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      return { errorCode: 500, errorMessage: message };
+    }
   }
 
   private async invokeAction(
@@ -105,9 +231,16 @@ export class BarSkeletonBuilder {
   }> = [];
   private readonly inOuts: ActionMethodInOut[] = [];
   private setting: BarSkeletonSetting = {};
+  private actionFactory: ActionFactoryBean | null = null;
 
   addAction(ActionClass: Function, instance?: object): this {
     this.actionClasses.push({ ActionClass, instance });
+    return this;
+  }
+
+  /** 设置 Action 实例工厂（任务 4）。构建时传递给 BarSkeleton；未设置回退 new。 */
+  setActionFactory(factory: ActionFactoryBean): this {
+    this.actionFactory = factory;
     return this;
   }
 
@@ -122,15 +255,16 @@ export class BarSkeletonBuilder {
   }
 
   build(): BarSkeleton {
-    const actionCommandRegions = new ActionCommandRegions();
-    const parser = new DefaultActionCommandParser();
-    const context = { actionCommandRegions };
+    const skeleton = new BarSkeleton(new ActionCommandRegions(), this.setting, this.inOuts);
 
-    for (const { ActionClass, instance } of this.actionClasses) {
-      const controllerInstance = instance ?? new (ActionClass as new () => object)();
-      parser.parse(ActionClass, controllerInstance, context);
+    if (this.actionFactory) {
+      skeleton.setActionFactory(this.actionFactory);
     }
 
-    return new BarSkeleton(actionCommandRegions, this.setting, this.inOuts);
+    for (const { ActionClass, instance } of this.actionClasses) {
+      skeleton.addAction(ActionClass, instance);
+    }
+
+    return skeleton;
   }
 }

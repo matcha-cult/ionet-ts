@@ -5,7 +5,9 @@
   "description": "ionet TypeScript port — distributed network programming framework",
   "scripts": {
     "build": "pnpm -r run build",
+    "build:core": "pnpm --filter './packages/*' run build",
     "test": "pnpm -r run test",
+    "test:core": "pnpm --filter './packages/*' run test",
     "lint": "eslint packages/*/src",
     "lint:fix": "eslint packages/*/src --fix",
     "format": "prettier --write \"packages/*/src/**/*.ts\"",

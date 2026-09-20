@@ -1,6 +1,11 @@
-import type { BarSkeletonSetting, ActionMethodInOut } from '@nbb-ionet/core-framework';
-import type { ExternalServerOptions } from '@nbb-ionet/external-server';
+import type {
+  BarSkeletonSetting,
+  ActionMethodInOut,
+  ActionFactoryBean,
+} from '@nbb-ionet/core-framework';
+import type { HttpExternalServerOptions, WebSocketExternalServerOptions } from '@nbb-ionet/external-server';
 import type { RedisClientOptions } from '@nbb-ionet/redis';
+import type { NestActionResolver } from './action-factory-bean-for-nest.js';
 
 export interface IonetModuleOptions {
   /** Action classes decorated with @ActionController */
@@ -13,8 +18,62 @@ export interface IonetModuleOptions {
   httpServer?: HttpServerOptions | false;
   /** WebSocket External Server options. Set to false to disable. */
   wsServer?: WsServerOptions | false;
-  /** Redis options. Set to false to disable. */
-  redis?: RedisClientOptions | false;
+  /** Redis 选项。`false` 关闭；`true` 用默认连接参数开启（RS7）。 */
+  redis?: RedisClientOptions | true | false;
+  /**
+   * RS7：Redis 选项对象上的附加分布式配置。
+   * - `distributed`（默认 true，仅 redis 开启时有效）：接入服务器注册表、分布式路由、
+   *   跨进程广播/连接表/OnExternal。置 false 时只连接 Redis（会话等），不启用分布式运行时。
+   * - `keyPrefix`：注册表/RPC/广播键前缀（多套集群隔离用）。
+   * - `instanceId`：本实例 id；缺省 redisClient.getInstanceId()。
+   * - `serverName` / `serverTag`：注册表中的对外服名称/tag。
+   * - `heartbeatIntervalMs` / `heartbeatTimeoutMs`：注册表心跳。
+   * - `callTimeoutMs`：跨服调用默认超时。
+   */
+  distributed?:
+    | boolean
+    | {
+        enabled?: boolean;
+        keyPrefix?: string;
+        instanceId?: string;
+        serverName?: string;
+        serverTag?: string;
+        heartbeatIntervalMs?: number;
+        heartbeatTimeoutMs?: number;
+        callTimeoutMs?: number;
+      };
+  /** RS7：会话走 Redis。enabled 时自动挂载 SessionInOut（除非 autoInOut: false）。 */
+  session?:
+    | boolean
+    | {
+        enabled?: boolean;
+        ttlSeconds?: number;
+        autoInOut?: boolean;
+      };
+  /**
+   * 是否提供 Broadcaster provider（默认 true）。
+   * 置 false 时不创建 IONET_BROADCASTER；未使用推送的部署可据此保持零新增开销。
+   */
+  broadcaster?: false;
+  /**
+   * 是否允许在 NODE_ENV=production 下运行本模块（默认 false）。
+   * 默认行为仍是「生产禁用」；仅在明确知晓部署形态（自管 Node 进程 + 自有发布流程）时才置 true。
+   */
+  allowProduction?: boolean;
+  /**
+   * 自定义 Action 实例工厂（任务 4，高级用法）：从 DI 容器解析实例。
+   * 配置后框架不会直接 new ActionClass()，而是在 onModuleInit 阶段（app 就绪后）
+   * 经该工厂解析并注册，使 Action 拿到容器依赖。
+   */
+  actionFactory?: ActionFactoryBean;
+  /**
+   * actionFactory 的简化形式：仅提供 (ActionClass) => instance 的解析函数。
+   * 例：forRoot({ actions, resolveAction: (Cls) => app.get(Cls) })。
+   *
+   * 注意：不要在框架侧注入 @nestjs/core 类令牌（ModuleRef 等）——跨仓库 workspace
+   * 链接下可能解析到不同副本而静默为 undefined。用本函数由应用侧显式解析即可绕开。
+   */
+  resolveAction?: NestActionResolver;
 }
 
 export interface IonetModuleAsyncOptions {
@@ -28,12 +87,27 @@ export interface IonetFeatureOptions {
   actions: Array<new (...args: any[]) => any>;
 }
 
-export interface HttpServerOptions extends ExternalServerOptions {
+/**
+ * HTTP 通道配置。继承传输层 `HttpExternalServerOptions`，因此 `pathPrefix` 可在此配置
+ * 并经 forRoot / forRootAsync 透传（默认 `/api`，见 PROTOCOL.md §9）。
+ */
+export interface HttpServerOptions extends HttpExternalServerOptions {
   /** Whether to enable the HTTP server. Default: true */
   enabled?: boolean;
 }
 
-export interface WsServerOptions extends ExternalServerOptions {
+/**
+ * WS 通道配置。两种形态（二选一）：
+ * - 独立模式：给出 port，WebSocketExternalServer 自起 listener（既有形态，生产独立部署亦走此模式）。
+ * - attach 模式：attachNestServer: true 且省略 port，WS upgrade 挂载到 NestJS 应用的
+ *   http.Server（端口三合一形态，见 idle-matcha ai-docs/port-consolidation-3in1.md）。
+ * server 字段不在此暴露——由模块在 onModuleInit 经 HttpAdapterHost 取得后注入。
+ */
+export interface WsServerOptions extends Omit<WebSocketExternalServerOptions, 'port' | 'server'> {
   /** Whether to enable the WebSocket server. Default: true */
   enabled?: boolean;
+  /** 独立模式端口。attachNestServer 不为 true 时必填 */
+  port?: number;
+  /** attach 模式：挂载到 NestJS http.Server（三合一单端口）。为 true 时省略 port */
+  attachNestServer?: boolean;
 }

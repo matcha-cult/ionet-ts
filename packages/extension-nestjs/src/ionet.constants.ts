@@ -4,3 +4,12 @@ export const IONET_HTTP_SERVER = Symbol('IONET_HTTP_SERVER');
 export const IONET_WS_SERVER = Symbol('IONET_WS_SERVER');
 export const IONET_REDIS_CLIENT = Symbol('IONET_REDIS_CLIENT');
 export const IONET_ACTIONS = Symbol('IONET_ACTIONS');
+export const IONET_BROADCASTER = Symbol('IONET_BROADCASTER');
+/** RS7：对外服分布式运行时（未开启 Redis/分布式时为 null）。 */
+export const IONET_EXTERNAL_RUNTIME = Symbol('IONET_EXTERNAL_RUNTIME');
+/** RS7：Redis pub/sub（分布式开启时非 null）。 */
+export const IONET_REDIS_PUB_SUB = Symbol('IONET_REDIS_PUB_SUB');
+/** RS7：Redis 会话存储（分布式开启时非 null）。 */
+export const IONET_SESSION_STORE = Symbol('IONET_SESSION_STORE');
+/** 内部使用：forFeature 动态模块向自身模块类传递 actions */
+export const IONET_FEATURE_ACTIONS = Symbol('IONET_FEATURE_ACTIONS');

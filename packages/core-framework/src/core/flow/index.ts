@@ -3,6 +3,7 @@ export {
   type Request,
   type Response,
   type ServerInfo,
+  type CrossServerCallOptions,
   flowContextStorage,
   getCurrentFlowContext,
   runWithFlowContext,

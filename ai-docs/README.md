@@ -18,6 +18,9 @@
 | [phase3-review.md](./phase3-review.md) | **Phase 3 回顾**（架构决策、测试覆盖、文件清单） |
 | [phase4-extensions.md](./phase4-extensions.md) | **Phase 4 详细任务清单**（Domain Event、Protobuf、Codegen、NestJS 集成） |
 | [phase5-preset-logic.md](./phase5-preset-logic.md) | **Phase 5 详细任务清单**（预制逻辑服抽象类） |
+| [phase5-review.md](./phase5-review.md) | **Phase 5 回顾**（交付清单、设计决策、测试覆盖） |
+| [port-consolidation-3in1.md](./port-consolidation-3in1.md) | **端口三合一方案**（:3001/:3002 并入 :3000） |
+| [port-consolidation-3in1-feasibility.md](./port-consolidation-3in1-feasibility.md) | **三合一可行性评估** |
 
 ## 任务跟踪（超长期）
 
@@ -133,30 +136,30 @@
 
 详细回顾见 [phase4-review.md](./phase4-review.md)
 
-### Phase 5 · 预制逻辑服（规划中）
+### Phase 5 · 预制逻辑服 ✅ 完成
 
 详细任务清单见 [phase5-preset-logic.md](./phase5-preset-logic.md)
 
 预制逻辑服抽象类（需继承后使用）：
 
-- [ ] 用户系统
-  - [ ] AbstractAuthAction（登录认证）
-  - [ ] AbstractUserAction（用户管理）
-  - [ ] AbstractMultiRoleUserAction（多角色用户）
-- [ ] 物品系统
-  - [ ] AbstractItem（物品基类）
-  - [ ] AbstractBagAction（背包系统）
-  - [ ] AbstractEquipAction（装备系统）
-- [ ] 社交系统
-  - [ ] AbstractMailAction（邮件系统）
-  - [ ] AbstractRoom（抽象房间）
-  - [ ] AbstractGameRoom（抽象游戏房间）
-- [ ] 放置系统
-  - [ ] AbstractIdleAction（放置类游戏）
-- [ ] 文档和示例
-  - [ ] 使用文档
-  - [ ] 完整示例项目
-  - [ ] phase5-review.md 回顾文档
+- [x] 用户系统
+  - [x] AbstractAuthAction（登录认证）
+  - [x] AbstractUserAction（用户管理）
+  - [x] AbstractMultiRoleUserAction（多角色用户）
+- [x] 物品系统
+  - [x] AbstractItem（物品基类）
+  - [x] AbstractBagAction（背包系统）
+  - [x] AbstractEquipAction（装备系统）
+- [x] 社交系统
+  - [x] AbstractMailAction（邮件系统）
+  - [x] AbstractRoom（抽象房间）
+  - [x] AbstractGameRoom（抽象游戏房间）
+- [x] 放置系统
+  - [x] AbstractIdleAction（放置类游戏）
+- [x] 文档和示例
+  - [x] 使用文档
+  - [x] 完整示例项目
+  - [x] phase5-review.md 回顾文档
 
 ---
 

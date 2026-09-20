@@ -51,9 +51,12 @@ export class CSharpCodeGenerator implements CodeGenerator {
         const className = `${action.controllerName}${this.toPascalCase(method.methodName)}Response`;
         lines.push(`    public class ${className}`);
         lines.push('    {');
-        lines.push(`        public int Cmd { get; set; } = ${action.cmd};`);
-        lines.push(`        public int SubCmd { get; set; } = ${method.subCmd};`);
+        // 与线协议一致：响应不回显 Cmd/SubCmd；ReqId/Kind 仅新协议路径出现（可选）
         lines.push(`        public ${this.mapType(method.returnType)} Data { get; set; }`);
+        lines.push('        public int? ErrorCode { get; set; }');
+        lines.push('        public string? ErrorMessage { get; set; }');
+        lines.push('        public object? ReqId { get; set; }');
+        lines.push('        public string? Kind { get; set; }');
         lines.push('    }');
         lines.push('');
       }

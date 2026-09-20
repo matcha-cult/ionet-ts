@@ -87,6 +87,20 @@ describe('MemoryBroadcaster', () => {
     it('用户不存在时静默处理', async () => {
       await expect(broadcaster.broadcastToUser('nonexistent', createMessage())).resolves.toBeUndefined();
     });
+
+    it('推送信封由框架构造：kind=notification，type/timestamp/data 保留（P1-3）', async () => {
+      const conn = createMockConnection('c1');
+      connections.register('user1', conn);
+      const message = createMessage('room.event');
+
+      await broadcaster.broadcastToUser('user1', message);
+
+      const frame = JSON.parse(conn.sent[0]);
+      expect(frame.kind).toBe('notification');
+      expect(frame.type).toBe('room.event');
+      expect(frame.timestamp).toBe(message.timestamp);
+      expect(frame.data).toEqual({ hello: 'world' });
+    });
   });
 
   describe('broadcastToUsers', () => {

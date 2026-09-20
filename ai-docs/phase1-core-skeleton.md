@@ -8,9 +8,9 @@
 
 ### 任务清单
 
-- [ ] **M1**: 确定 TS monorepo 工具（pnpm workspaces / turborepo / nx 选一）
-- [ ] **M2**: 确定包名前缀（建议 `@nbb-ionet/*`）
-- [ ] **M3**: 搭建根目录结构：
+- [x] **M1**: 确定 TS monorepo 工具（pnpm workspaces / turborepo / nx 选一）
+- [x] **M2**: 确定包名前缀（建议 `@nbb-ionet/*`）
+- [x] **M3**: 搭建根目录结构：
   ```
   ionet-ts/
   ├── packages/
@@ -24,12 +24,12 @@
   ├── tsconfig.base.json
   └── package.json
   ```
-- [ ] **M4**: 配置 TypeScript（strict mode、experimental decorators、emitDecoratorMetadata）
-- [ ] **M5**: 配置测试框架（Vitest 推荐，兼容 Jest API）
-- [ ] **M6**: 配置 lint（ESLint + Prettier，规则在 Phase 1 保持最简）
-- [ ] **M7**: 配置构建（tsup / unbuild / tsc 选一；推荐 tsup）
-- [ ] **M8**: 安装 `reflect-metadata`、`@types/node`
-- [ ] **M9**: 写一个 `hello-world` 包验证 monorepo 跑通（发布/链接）
+- [x] **M4**: 配置 TypeScript（strict mode、experimental decorators、emitDecoratorMetadata）
+- [x] **M5**: 配置测试框架（Vitest 推荐，兼容 Jest API）
+- [x] **M6**: 配置 lint（ESLint + Prettier，规则在 Phase 1 保持最简）
+- [x] **M7**: 配置构建（tsup / unbuild / tsc 选一；推荐 tsup）
+- [x] **M8**: 安装 `reflect-metadata`、`@types/node`
+- [x] **M9**: 写一个 `hello-world` 包验证 monorepo 跑通（发布/链接）
 
 ### 验收标准
 - `pnpm install` 成功
@@ -257,12 +257,12 @@ expect(response.data.nickname).toBe('Alice');
 
 ### 任务清单
 
-- [ ] **7.1**: 创建 `demos/demo/` 包
-- [ ] **7.2**: 实现 `HallAction`（loginVerify + hello 两个方法）
-- [ ] **7.3**: 实现 `HallCmd` 常量接口
-- [ ] **7.4**: 启动 BarSkeleton 并通过代码调用 Action
-- [ ] **7.5**: 打印 DebugInOut 的日志
-- [ ] **7.6**: 写 README 演示如何跑起来
+- [x] **7.1**: 创建 `demos/demo/` 包
+- [x] **7.2**: 实现 `HallAction`（loginVerify + hello 两个方法）
+- [x] **7.3**: 实现 `HallCmd` 常量接口
+- [x] **7.4**: 启动 BarSkeleton 并通过代码调用 Action
+- [x] **7.5**: 打印 DebugInOut 的日志
+- [x] **7.6**: 写 README 演示如何跑起来
 
 ### 验收标准
 ```bash
@@ -276,11 +276,11 @@ $ pnpm --filter @nbb-ionet/demo start
 
 ## 8. 文档与回顾
 
-- [ ] **8.1**: 写 `packages/core-framework/README.md`（API 概览）
-- [ ] **8.2**: 写 `packages/core-framework/docs/phase1-review.md`（与 ionet 原版差异点）
-- [ ] **8.3**: 更新 `ai-docs/README.md` 标记 Phase 1 完成
-- [ ] **8.4**: 制定 Phase 2 任务清单（External Server 抽象）
-- [ ] **8.5**: 在 ionet-ai 知识库贡献 TS 移植相关的 stable 资产（见 mcp-assets.md 的覆盖缺口）
+- [x] **8.1**: 写 `packages/core-framework/README.md`（API 概览）
+- [x] **8.2**: 写 `packages/core-framework/docs/phase1-review.md`（与 ionet 原版差异点）
+- [x] **8.3**: 更新 `ai-docs/README.md` 标记 Phase 1 完成
+- [x] **8.4**: 制定 Phase 2 任务清单（External Server 抽象）
+- [x] **8.5**: 在 ionet-ai 知识库贡献 TS 移植相关的 stable 资产（见 mcp-assets.md 的覆盖缺口）
 
 ---
 

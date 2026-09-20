@@ -23,6 +23,7 @@
     "ws": "^8.21.0"
   },
   "devDependencies": {
+    "@nbb-ionet/client-protocol": "workspace:*",
     "@swc/core": "^1.5.0",
     "@types/ws": "^8.18.1",
     "tsup": "^8.0.0",

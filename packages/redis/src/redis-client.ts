@@ -29,7 +29,10 @@ export class RedisClient {
     const redisOpts = this.buildRedisOptions();
     this.client = new Redis(redisOpts);
     this.subscriber = new Redis(redisOpts);
-    await this.waitForReady(this.client);
+    await Promise.all([
+      this.waitForReady(this.client),
+      this.waitForReady(this.subscriber),
+    ]);
     this.status = 'connected';
   }
 

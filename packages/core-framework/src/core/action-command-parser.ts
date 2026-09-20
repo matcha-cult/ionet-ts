@@ -51,8 +51,8 @@ export class DefaultActionCommandParser {
       }
 
       const cmdInfo = CmdInfo.of(cmd, subCmd);
-      const parameters = this.extractParameters(method);
-      const returnType = this.extractReturnType(method);
+      const parameters = this.extractParameters(ActionClass.prototype, methodName, method);
+      const returnType = this.extractReturnType(ActionClass.prototype, methodName, method);
 
       const actionCommand = createActionCommand({
         cmdInfo,
@@ -75,9 +75,19 @@ export class DefaultActionCommandParser {
     return parsedCommands;
   }
 
-  private extractParameters(method: Function): ActionMethodParameter[] {
+  private extractParameters(
+    prototype: object,
+    methodName: string | symbol,
+    method: Function,
+  ): ActionMethodParameter[] {
+    // tsc emitDecoratorMetadata 以 (prototype, methodName) 为键存储 design:paramtypes；
+    // 单参读 method 函数本身永远为 undefined（旧实现的既有缺陷：FlowContext 参数因此
+    // 一律被误判为 DATA，形如 method(ctx, data) 的 Action 第一个实参被错填 data）。
+    // 保留对 method 的单参回退读，兼容可能直接附在函数对象上的元数据。
     const paramTypes: Function[] =
-      Reflect.getMetadata('design:paramtypes', method) ?? [];
+      Reflect.getMetadata('design:paramtypes', prototype, methodName) ??
+      Reflect.getMetadata('design:paramtypes', method) ??
+      [];
     const paramCount = paramTypes.length > 0 ? paramTypes.length : method.length;
 
     const parameters: ActionMethodParameter[] = [];
@@ -98,9 +108,16 @@ export class DefaultActionCommandParser {
     return parameters;
   }
 
-  private extractReturnType(method: Function): ActionMethodReturn {
+  private extractReturnType(
+    prototype: object,
+    methodName: string | symbol,
+    method: Function,
+  ): ActionMethodReturn {
+    // 与 extractParameters 同理：design:returntype 亦以 (prototype, methodName) 为键
     const returnType: Function =
-      Reflect.getMetadata('design:returntype', method) ?? Object;
+      Reflect.getMetadata('design:returntype', prototype, methodName) ??
+      Reflect.getMetadata('design:returntype', method) ??
+      Object;
 
     return {
       type: returnType?.name,
